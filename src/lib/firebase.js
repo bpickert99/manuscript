@@ -5,12 +5,13 @@ import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 // ⚠️  FILL THESE IN from your Firebase console → Project Settings → Your apps
 // If this file ever reverts to these placeholder values after a push, re-enter them manually.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyCVBQ5-sLLsa7JnB-cK7IJnuRRPw9qdS-U",
+  authDomain: "manuscript-4724a.firebaseapp.com",
+  projectId: "manuscript-4724a",
+  storageBucket: "manuscript-4724a.firebasestorage.app",
+  messagingSenderId: "271308193883",
+  appId: "1:271308193883:web:5cd719b6d919f6d93e3f7e",
+  measurementId: "G-N71EN7HQN3"
 };
 
 const app = initializeApp(firebaseConfig);

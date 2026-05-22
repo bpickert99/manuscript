@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // All user data is scoped under /users/{userId}
+    // Only the authenticated user can read or write their own data.
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Future: shared review links will go here with public read rules.
+  }
+}

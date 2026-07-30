@@ -34,7 +34,7 @@ export default function WorkspaceLayout() {
           onMobileMenuOpen={() => setMobileSidebarOpen(true)}
         />
         <div className="workspace-content">
-          <div style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div className="workspace-panel">
             {activeTab === 'write' && <Editor />}
             {activeTab === 'plot' && <PlotGrid />}
             {activeTab === 'map' && <MapView />}

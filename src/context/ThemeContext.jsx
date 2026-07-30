@@ -47,9 +47,27 @@ const THEMES = {
   },
 };
 
+const FONTS = {
+  baskerville: {
+    label: 'Baskerville',
+    stack: "'Libre Baskerville', 'Baskerville', Georgia, 'Times New Roman', serif",
+  },
+  lora: {
+    label: 'Lora',
+    stack: "'Lora', Georgia, 'Times New Roman', serif",
+  },
+  inter: {
+    label: 'Inter',
+    stack: "'Inter', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif",
+  },
+};
+
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('manuscript-theme') || 'light';
+  });
+  const [font, setFont] = useState(() => {
+    return localStorage.getItem('manuscript-font') || 'baskerville';
   });
 
   useEffect(() => {
@@ -62,8 +80,23 @@ export function ThemeProvider({ children }) {
     localStorage.setItem('manuscript-theme', theme);
   }, [theme]);
 
+  useEffect(() => {
+    const stack = (FONTS[font] || FONTS.baskerville).stack;
+    document.documentElement.style.setProperty('--font', stack);
+    localStorage.setItem('manuscript-font', font);
+  }, [font]);
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, themes: Object.keys(THEMES) }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        setTheme,
+        themes: Object.keys(THEMES),
+        font,
+        setFont,
+        fonts: Object.entries(FONTS).map(([id, { label }]) => ({ id, label })),
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );

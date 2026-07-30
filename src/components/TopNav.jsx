@@ -3,7 +3,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
-import { PenLine, Grid3X3, Map, BookOpen, StickyNote, ArrowLeft, Menu, Sun, Moon, Scroll } from 'lucide-react';
+import { PenLine, Grid3X3, Map, BookOpen, StickyNote, ArrowLeft, Menu, Sun, Moon, Scroll, Type } from 'lucide-react';
 
 const TABS = [
   { id: 'write', label: 'Write', icon: PenLine },
@@ -14,13 +14,21 @@ const TABS = [
 
 export default function TopNav({ activeTab, setActiveTab, notesOpen, setNotesOpen, onMobileMenuOpen }) {
   const { currentProject, clearProject } = useApp();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, font, setFont, fonts } = useTheme();
 
   function cycleTheme() {
     const themes = ['light', 'dark', 'parchment'];
     const next = themes[(themes.indexOf(theme) + 1) % themes.length];
     setTheme(next);
   }
+
+  function cycleFont() {
+    const ids = fonts.map((f) => f.id);
+    const next = ids[(ids.indexOf(font) + 1) % ids.length];
+    setFont(next);
+  }
+
+  const currentFontLabel = fonts.find((f) => f.id === font)?.label || 'Font';
 
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'parchment' ? Scroll : Sun;
 
@@ -63,6 +71,9 @@ export default function TopNav({ activeTab, setActiveTab, notesOpen, setNotesOpe
           title="Toggle notes panel"
         >
           <StickyNote size={15} />
+        </button>
+        <button className="icon-btn" onClick={cycleFont} title={`Font: ${currentFontLabel} (click to change)`}>
+          <Type size={15} />
         </button>
         <button className="icon-btn" onClick={cycleTheme} title="Change theme">
           <ThemeIcon size={15} />

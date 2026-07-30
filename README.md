@@ -56,12 +56,13 @@ Or configure GitHub Actions to build and deploy automatically.
 | Multiple projects, each with multiple books | ✅ |
 | Freely nestable tree — any node type anywhere, drag-to-reorder/reparent | ✅ |
 | Permanent word counts (per node + rollup) | ✅ |
-| Aggregate reading view (select a Book/Part to read everything nested under it) | ✅ |
+| Unified manuscript view — read and edit at any level, chapter/part headings, auto scene breaks | ✅ |
+| Book Layout corkboard — drag-to-reorder cards, renames/reorders everywhere | ✅ |
 | Rich text editor (Bold, Italic, Blockquote, Indent) | ✅ |
 | "Just Write" mode (lock everything but the word you're typing) | ✅ |
 | Choice of 3 fonts (Baskerville, Lora, Inter) | ✅ |
 | Three themes (Light, Dark, Parchment) | ✅ |
-| Per-node notes / scratchpad | ✅ |
+| Per-node notes / scratchpad (open by default) | ✅ |
 | Offline sync via Firebase | ✅ |
 | Plot grid (scenes × threads) + beat-sheet templates | ✅ |
 | Story map (Leaflet / OpenStreetMap) | ✅ |
@@ -72,7 +73,7 @@ Or configure GitHub Actions to build and deploy automatically.
 | Wiki [[linking]] auto-suggestions | 🔜 Iteration 4 |
 | Real-time multi-account collaboration on a project | 🔜 Iteration 4 |
 
-## The tree
+## The tree and the manuscript view
 
 Any node — Book, Part, Chapter, or Scene — can be added under any other
 node (or at the project root), and nested to any depth. Drag a row onto
@@ -80,10 +81,29 @@ another to nest it inside; drag to the top or bottom edge of a row to drop
 it as a sibling before/after. Every row shows its own word count plus the
 total of everything nested under it.
 
-Selection drives read vs. write, not the type label: selecting a node with
-children shows a **read-only concatenated view** of every leaf descendant's
-text in document order (open any section from there to edit it); selecting
-a leaf node opens the normal editor.
+Selecting any node — leaf or branch — opens the same **Write** view, and
+every line of text in it is directly editable no matter what level you're
+looking at. Select a Book and you get the whole book: each Part/Chapter
+along the way renders as a heading (its own text, editable in place), each
+Scene gets its own title and prose section, and two scenes that share the
+same immediate parent automatically get a centered "• • •" break between
+them — no divider between a chapter's last scene and the next chapter's
+first, since the next heading already marks that transition. Select a
+single Scene and you just get that one section. Every section auto-saves
+independently, so editing "the whole book" is really editing many
+documents at once through one continuous page.
+
+## Book Layout
+
+The **Layout** tab shows the selected node's structure as a corkboard:
+each direct child with its own children becomes a labeled section, and its
+children become draggable cards. Rename a card or section in place, jot a
+note on a card (the same note that shows in the right-hand scratchpad),
+and drag cards to reorder them or move them into a different section —
+drag a section header to reorder sections. All of it goes through the same
+`moveNode`/`updateNode` actions the sidebar and editor use, so the order
+you set here is the order everywhere else (sidebar tree, manuscript view,
+Plot Grid rows). "Open in Write →" jumps straight to editing that card.
 
 ## Just Write mode
 

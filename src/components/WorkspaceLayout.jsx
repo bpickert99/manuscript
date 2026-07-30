@@ -3,13 +3,14 @@ import ManuscriptSidebar from './ManuscriptSidebar';
 import TopNav from './TopNav';
 import Editor from './Editor';
 import NotesPanel from './NotesPanel';
+import LayoutView from './LayoutView';
 import PlotGrid from './PlotGrid';
 import MapView from './MapView';
 import WikiView from './WikiView';
 
 export default function WorkspaceLayout() {
   const [activeTab, setActiveTab] = useState('write');
-  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
@@ -36,6 +37,7 @@ export default function WorkspaceLayout() {
         <div className="workspace-content">
           <div className="workspace-panel">
             {activeTab === 'write' && <Editor />}
+            {activeTab === 'layout' && <LayoutView />}
             {activeTab === 'plot' && <PlotGrid />}
             {activeTab === 'map' && <MapView />}
             {activeTab === 'wiki' && <WikiView />}

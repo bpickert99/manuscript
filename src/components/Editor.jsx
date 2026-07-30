@@ -4,7 +4,8 @@ import StarterKit from '@tiptap/starter-kit';
 import CharacterCount from '@tiptap/extension-character-count';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useApp } from '../context/AppContext';
-import { Bold, Italic, Quote } from 'lucide-react';
+import { Indent } from '../lib/indentExtension';
+import { Bold, Italic, Quote, IndentIncrease, IndentDecrease } from 'lucide-react';
 
 const SAVE_DELAY = 1800;
 
@@ -31,6 +32,7 @@ export default function Editor() {
         strike: false,
       }),
       CharacterCount,
+      Indent,
       Placeholder.configure({
         placeholder: 'Begin writing...',
       }),
@@ -144,6 +146,23 @@ export default function Editor() {
           style={{ padding: '4px 8px' }}
         >
           <Quote size={13} />
+        </button>
+        <div className="editor-toolbar-sep" />
+        <button
+          className="editor-toolbar-btn"
+          onClick={() => editor?.chain().focus().outdent().run()}
+          title="Decrease indent (Shift+Tab)"
+          style={{ padding: '4px 8px' }}
+        >
+          <IndentDecrease size={13} />
+        </button>
+        <button
+          className="editor-toolbar-btn"
+          onClick={() => editor?.chain().focus().indent().run()}
+          title="Increase indent (Tab)"
+          style={{ padding: '4px 8px' }}
+        >
+          <IndentIncrease size={13} />
         </button>
         <span className="editor-toolbar-word-count">
           {wordCount.toLocaleString()} {wordCount === 1 ? 'word' : 'words'}

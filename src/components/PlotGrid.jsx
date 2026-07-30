@@ -4,18 +4,20 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useApp } from '../context/AppContext';
-import { Plus, Trash2, X } from 'lucide-react';
+import { BEAT_TEMPLATES, ACT_COLORS, distributeBeats } from '../lib/beatTemplates';
+import { Plus, Trash2, X, LayoutTemplate } from 'lucide-react';
 
 const THREAD_COLORS = ['#2c4a6e', '#5a7a3e', '#8b5a2b', '#6a3d7a', '#2e6e6e', '#8b3030', '#4a6e2c', '#6e4a2c'];
 
 export default function PlotGrid() {
-  const { user, currentProject, nodes } = useApp();
+  const { user, currentProject, nodes, updateNode } = useApp();
   const [threads, setThreads] = useState([]);
   const [cells, setCells] = useState({});
   const [editingCell, setEditingCell] = useState(null);
   const [editingCellVal, setEditingCellVal] = useState('');
   const [newThreadName, setNewThreadName] = useState('');
   const [addingThread, setAddingThread] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
 
   const scenes = nodes
     .filter((n) => n.type === 'scene')
@@ -69,6 +71,16 @@ export default function PlotGrid() {
   async function deleteThread(threadId) {
     if (!window.confirm('Delete this plot thread?')) return;
     await deleteDoc(doc(db, 'users', user.uid, 'plotThreads', threadId));
+  }
+
+  async function applyTemplate(template) {
+    const assignments = distributeBeats(template, scenes.length);
+    await Promise.all(
+      scenes.map((scene, i) =>
+        updateNode(scene.id, { act: assignments[i].act, beat: assignments[i].beat })
+      )
+    );
+    setTemplatePickerOpen(false);
   }
 
   function openCell(sceneId, threadId) {
@@ -130,6 +142,15 @@ export default function PlotGrid() {
             Add Thread
           </button>
         )}
+        <button
+          className="btn-sm"
+          onClick={() => setTemplatePickerOpen(true)}
+          disabled={scenes.length === 0}
+          title={scenes.length === 0 ? 'Add scenes first' : 'Tag scenes with a story-structure template'}
+        >
+          <LayoutTemplate size={12} style={{ display: 'inline', marginRight: 4, verticalAlign: -2 }} />
+          Apply Beat Template
+        </button>
         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 'auto', fontStyle: 'italic' }}>
           Click a cell to add notes. Threads = plot lines, rows = scenes.
         </span>
@@ -167,7 +188,23 @@ export default function PlotGrid() {
             <tbody>
               {scenes.map((scene) => (
                 <tr key={scene.id}>
-                  <td className="plot-scene-label">{scene.title}</td>
+                  <td
+                    className="plot-scene-label"
+                    style={scene.act ? { borderLeft: '3px solid ' + (ACT_COLORS[scene.act] || ACT_COLORS[1]) } : {}}
+                  >
+                    {scene.title}
+                    {scene.beat && (
+                      <div className="plot-scene-beat">
+                        <span
+                          className="plot-act-badge"
+                          style={{ background: ACT_COLORS[scene.act] || ACT_COLORS[1] }}
+                        >
+                          Act {scene.act}
+                        </span>
+                        {scene.beat}
+                      </div>
+                    )}
+                  </td>
                   {threads.map((thread) => {
                     const key = scene.id + '_' + thread.id;
                     const cell = cells[key];
@@ -214,6 +251,32 @@ export default function PlotGrid() {
             <div className="modal-actions">
               <button className="btn-cancel" onClick={() => setEditingCell(null)}>Cancel</button>
               <button className="btn-primary" onClick={saveCell}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {templatePickerOpen && (
+        <div className="modal-overlay" onClick={() => setTemplatePickerOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <div className="modal-title">Apply a Beat Template</div>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+              Spreads the template's beats across your {scenes.length} existing scene{scenes.length === 1 ? '' : 's'}
+              in order, tagging each with an act and beat name. This overwrites any existing tags.
+            </p>
+            {BEAT_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                className="project-card"
+                style={{ width: '100%', textAlign: 'left', marginBottom: '0.6rem', display: 'block' }}
+                onClick={() => applyTemplate(t)}
+              >
+                <div className="project-card-title">{t.label}</div>
+                <div className="project-card-meta">{t.description}</div>
+              </button>
+            ))}
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setTemplatePickerOpen(false)}>Cancel</button>
             </div>
           </div>
         </div>

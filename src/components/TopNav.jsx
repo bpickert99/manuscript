@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
-import { PenLine, Grid3X3, Map, BookOpen, StickyNote, ArrowLeft, Menu, Sun, Moon, Scroll, Type } from 'lucide-react';
+import ShareModal from './ShareModal';
+import { PenLine, Grid3X3, Map, BookOpen, StickyNote, ArrowLeft, Menu, Sun, Moon, Scroll, Type, Share2 } from 'lucide-react';
 
 const TABS = [
   { id: 'write', label: 'Write', icon: PenLine },
@@ -15,6 +16,7 @@ const TABS = [
 export default function TopNav({ activeTab, setActiveTab, notesOpen, setNotesOpen, onMobileMenuOpen }) {
   const { currentProject, clearProject } = useApp();
   const { theme, setTheme, font, setFont, fonts } = useTheme();
+  const [shareOpen, setShareOpen] = useState(false);
 
   function cycleTheme() {
     const themes = ['light', 'dark', 'parchment'];
@@ -72,6 +74,9 @@ export default function TopNav({ activeTab, setActiveTab, notesOpen, setNotesOpe
         >
           <StickyNote size={15} />
         </button>
+        <button className="icon-btn" onClick={() => setShareOpen(true)} title="Share for review">
+          <Share2 size={15} />
+        </button>
         <button className="icon-btn" onClick={cycleFont} title={`Font: ${currentFontLabel} (click to change)`}>
           <Type size={15} />
         </button>
@@ -79,6 +84,8 @@ export default function TopNav({ activeTab, setActiveTab, notesOpen, setNotesOpe
           <ThemeIcon size={15} />
         </button>
       </div>
+
+      {shareOpen && <ShareModal onClose={() => setShareOpen(false)} />}
     </div>
   );
 }

@@ -5,15 +5,19 @@ import CharacterCount from '@tiptap/extension-character-count';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useApp } from '../context/AppContext';
 import { Indent } from '../lib/indentExtension';
-import { Bold, Italic, Quote, IndentIncrease, IndentDecrease } from 'lucide-react';
+import { JustWrite } from '../lib/justWriteExtension';
+import ReadingView from './ReadingView';
+import { Bold, Italic, Quote, IndentIncrease, IndentDecrease, FastForward } from 'lucide-react';
 
 const SAVE_DELAY = 1800;
 
 export default function Editor() {
   const { currentNodeId, nodes, updateNode } = useApp();
   const node = nodes.find((n) => n.id === currentNodeId) || null;
+  const hasChildren = currentNodeId != null && nodes.some((n) => n.parentId === currentNodeId);
   const [saveStatus, setSaveStatus] = useState('saved');
   const [titleVal, setTitleVal] = useState('');
+  const [justWrite, setJustWriteState] = useState(false);
   const saveTimer = useRef(null);
   const titleTimer = useRef(null);
   const lastSavedContentRef = useRef(null);
@@ -33,6 +37,7 @@ export default function Editor() {
       }),
       CharacterCount,
       Indent,
+      JustWrite,
       Placeholder.configure({
         placeholder: 'Begin writing...',
       }),
@@ -109,6 +114,17 @@ export default function Editor() {
     );
   }
 
+  if (hasChildren) {
+    return <ReadingView nodeId={currentNodeId} />;
+  }
+
+  function toggleJustWrite() {
+    const next = !justWrite;
+    setJustWriteState(next);
+    editor?.commands.setJustWrite(next);
+    if (next) editor?.commands.focus('end');
+  }
+
   const wordCount = editor
     ? editor.storage.characterCount?.words?.() || 0
     : 0;
@@ -163,6 +179,15 @@ export default function Editor() {
           style={{ padding: '4px 8px' }}
         >
           <IndentIncrease size={13} />
+        </button>
+        <div className="editor-toolbar-sep" />
+        <button
+          className={"editor-toolbar-btn" + (justWrite ? " is-active" : "")}
+          onClick={toggleJustWrite}
+          title="Just Write: lock everything except the word you're currently typing"
+          style={{ padding: '4px 8px' }}
+        >
+          <FastForward size={13} />
         </button>
         <span className="editor-toolbar-word-count">
           {wordCount.toLocaleString()} {wordCount === 1 ? 'word' : 'words'}

@@ -159,6 +159,42 @@ export function AppProvider({ children }) {
     dispatch({ type: 'SET_PROJECT', payload: null });
   }
 
+  // Reparents/reorders a node. newParentId is null for root level.
+  // newIndex is the node's target index among its new siblings.
+  async function moveNode(nodeId, newParentId, newIndex) {
+    if (!state.user) return;
+    const node = state.nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+
+    // Refuse to drop a node into itself or one of its own descendants.
+    let cursor = newParentId;
+    while (cursor) {
+      if (cursor === nodeId) return;
+      const parentNode = state.nodes.find((n) => n.id === cursor);
+      cursor = parentNode ? parentNode.parentId : null;
+    }
+
+    const siblings = state.nodes
+      .filter((n) => n.id !== nodeId && (n.parentId || null) === (newParentId || null))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    const clampedIndex = Math.max(0, Math.min(newIndex, siblings.length));
+    siblings.splice(clampedIndex, 0, node);
+
+    const updates = siblings.map((n, i) => ({ id: n.id, order: i, parentId: newParentId || null }));
+    updates.forEach((u) =>
+      dispatch({ type: 'OPTIMISTIC_UPDATE_NODE', payload: { id: u.id, data: { order: u.order, parentId: u.parentId } } })
+    );
+    await Promise.all(
+      updates.map((u) =>
+        updateDoc(doc(db, 'users', state.user.uid, 'nodes', u.id), {
+          order: u.order,
+          parentId: u.parentId,
+          updatedAt: serverTimestamp(),
+        })
+      )
+    );
+  }
+
   return (
     <AppContext.Provider
       value={{
@@ -168,6 +204,7 @@ export function AppProvider({ children }) {
         addNode,
         updateNode,
         deleteNode,
+        moveNode,
         clearProject,
       }}
     >

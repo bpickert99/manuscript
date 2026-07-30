@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp, buildTree } from '../context/AppContext';
-import { ChevronRight, ChevronDown, Book, Layers, FileText, AlignLeft, Plus, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
+import { computeWordCounts } from '../lib/wordCount';
+import { ChevronRight, ChevronDown, Book, Layers, FileText, AlignLeft, Plus, Pencil, Trash2 } from 'lucide-react';
 
 const NODE_ICONS = {
   book: Book,
@@ -9,22 +10,57 @@ const NODE_ICONS = {
   scene: AlignLeft,
 };
 
-const CHILD_TYPES = {
-  book: 'part',
-  part: 'chapter',
-  chapter: 'scene',
-  scene: null,
-};
+const ADD_TYPES = [
+  { type: 'book', label: 'Book', icon: Book },
+  { type: 'part', label: 'Part', icon: Layers },
+  { type: 'chapter', label: 'Chapter', icon: FileText },
+  { type: 'scene', label: 'Scene', icon: AlignLeft },
+];
 
-const EXPANDABLE = ['book', 'part', 'chapter'];
+function formatCount(n) {
+  return n.toLocaleString() + ' word' + (n === 1 ? '' : 's');
+}
 
 export default function ManuscriptSidebar({ mobile, onMobileClose }) {
-  const { currentProject, nodes, currentNodeId, selectNode, addNode, updateNode, deleteNode } = useApp();
+  const { currentProject, nodes, currentNodeId, selectNode, addNode, updateNode, deleteNode, moveNode } = useApp();
   const tree = buildTree(nodes);
+  const wordCounts = computeWordCounts(nodes);
+  const [rootAddOpen, setRootAddOpen] = useState(false);
+  const [dragId, setDragId] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null); // { nodeId, position: 'before'|'after'|'inside' }
 
-  async function handleAddRoot() {
-    await addNode('book', null);
+  async function handleAddRoot(type) {
+    setRootAddOpen(false);
+    await addNode(type, null);
   }
+
+  function siblingsOf(parentId) {
+    return nodes
+      .filter((n) => (n.parentId || null) === (parentId || null))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  }
+
+  async function handleDrop() {
+    if (!dragId || !dropTarget) return;
+    const target = nodes.find((n) => n.id === dropTarget.nodeId);
+    if (!target) return;
+
+    let newParentId, newIndex;
+    if (dropTarget.position === 'inside') {
+      newParentId = target.id;
+      newIndex = siblingsOf(target.id).length;
+    } else {
+      newParentId = target.parentId || null;
+      const sibs = siblingsOf(newParentId).filter((n) => n.id !== dragId);
+      const targetIdx = sibs.findIndex((n) => n.id === target.id);
+      newIndex = dropTarget.position === 'after' ? targetIdx + 1 : targetIdx;
+    }
+    await moveNode(dragId, newParentId, newIndex);
+    setDragId(null);
+    setDropTarget(null);
+  }
+
+  const totalWords = nodes.reduce((sum, n) => sum + (!n.parentId ? (wordCounts[n.id] || 0) : 0), 0);
 
   return (
     <div className={"sidebar" + (mobile ? " mobile-open" : "")}>
@@ -44,38 +80,75 @@ export default function ManuscriptSidebar({ mobile, onMobileClose }) {
               node={node}
               depth={0}
               currentNodeId={currentNodeId}
+              wordCounts={wordCounts}
               selectNode={selectNode}
               addNode={addNode}
               updateNode={updateNode}
               deleteNode={deleteNode}
+              dragId={dragId}
+              setDragId={setDragId}
+              dropTarget={dropTarget}
+              setDropTarget={setDropTarget}
+              onDrop={handleDrop}
             />
           ))
         )}
 
-        <div className="tree-add-row" onClick={handleAddRoot}>
-          <Plus size={12} />
-          Add Book
+        <div className="tree-add-row-wrap">
+          <div className="tree-add-row" onClick={() => setRootAddOpen((v) => !v)}>
+            <Plus size={12} />
+            Add to project
+          </div>
+          {rootAddOpen && <AddTypeMenu onPick={handleAddRoot} onClose={() => setRootAddOpen(false)} />}
         </div>
       </div>
 
       <div className="sidebar-footer" style={{ justifyContent: 'center' }}>
         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-          {nodes.filter((n) => n.type === 'scene').length} scene{nodes.filter((n) => n.type === 'scene').length !== 1 ? 's' : ''}
+          {formatCount(totalWords)} total
         </span>
       </div>
     </div>
   );
 }
 
-function TreeNode({ node, depth, currentNodeId, selectNode, addNode, updateNode, deleteNode }) {
+function AddTypeMenu({ onPick, onClose }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    function onClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [onClose]);
+
+  return (
+    <div className="add-type-menu" ref={ref} onClick={(e) => e.stopPropagation()}>
+      {ADD_TYPES.map(({ type, label, icon: Icon }) => (
+        <button key={type} className="add-type-menu-item" onClick={() => onPick(type)}>
+          <Icon size={13} />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TreeNode({
+  node, depth, currentNodeId, wordCounts, selectNode, addNode, updateNode, deleteNode,
+  dragId, setDragId, dropTarget, setDropTarget, onDrop,
+}) {
   const [expanded, setExpanded] = useState(true);
   const [renaming, setRenaming] = useState(false);
   const [renameVal, setRenameVal] = useState(node.title);
+  const [addOpen, setAddOpen] = useState(false);
   const renameRef = useRef(null);
+  const rowRef = useRef(null);
   const isSelected = currentNodeId === node.id;
-  const isExpandable = EXPANDABLE.includes(node.type);
-  const childType = CHILD_TYPES[node.type];
+  const hasChildren = node.children && node.children.length > 0;
   const Icon = NODE_ICONS[node.type] || AlignLeft;
+  const isDragging = dragId === node.id;
+  const isDropTarget = dropTarget?.nodeId === node.id;
 
   useEffect(() => {
     if (renaming && renameRef.current) {
@@ -111,16 +184,14 @@ function TreeNode({ node, depth, currentNodeId, selectNode, addNode, updateNode,
     if (e.key === 'Escape') setRenaming(false);
   }
 
-  async function handleAddChild(e) {
-    e.stopPropagation();
-    if (!childType) return;
+  async function handleAddChild(type) {
+    setAddOpen(false);
     setExpanded(true);
-    await addNode(childType, node.id);
+    await addNode(type, node.id);
   }
 
   async function handleDelete(e) {
     e.stopPropagation();
-    const hasChildren = node.children && node.children.length > 0;
     const msg = hasChildren
       ? "Delete \"" + node.title + "\" and all its contents? This cannot be undone."
       : "Delete \"" + node.title + "\"?";
@@ -128,14 +199,52 @@ function TreeNode({ node, depth, currentNodeId, selectNode, addNode, updateNode,
     await deleteNode(node.id);
   }
 
+  function handleDragStart(e) {
+    e.stopPropagation();
+    setDragId(node.id);
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleDragEnd() {
+    setDragId(null);
+    setDropTarget(null);
+  }
+
+  function handleDragOver(e) {
+    if (!dragId || dragId === node.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = rowRef.current.getBoundingClientRect();
+    const relY = (e.clientY - rect.top) / rect.height;
+    const position = relY < 0.25 ? 'before' : relY > 0.75 ? 'after' : 'inside';
+    setDropTarget({ nodeId: node.id, position });
+  }
+
+  function handleDropEvent(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    onDrop();
+  }
+
   return (
     <div className="tree-node">
       <div
-        className={"tree-node-row" + (isSelected ? " selected" : "")}
+        ref={rowRef}
+        className={
+          "tree-node-row" +
+          (isSelected ? " selected" : "") +
+          (isDragging ? " dragging" : "") +
+          (isDropTarget ? " drop-" + dropTarget.position : "")
+        }
         onClick={handleSelect}
         style={{ paddingLeft: (depth * 14 + 8) + "px" }}
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+        onDrop={handleDropEvent}
       >
-        {isExpandable ? (
+        {hasChildren ? (
           <button className="tree-toggle" onClick={handleToggle}>
             {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
@@ -161,12 +270,19 @@ function TreeNode({ node, depth, currentNodeId, selectNode, addNode, updateNode,
           </span>
         )}
 
+        <span className="tree-word-count">{(wordCounts[node.id] || 0).toLocaleString()}w</span>
+
         <div className="tree-actions">
-          {childType && (
-            <button className="tree-action-btn" onClick={handleAddChild} title={"Add " + childType}>
+          <div style={{ position: 'relative' }}>
+            <button
+              className="tree-action-btn"
+              onClick={(e) => { e.stopPropagation(); setAddOpen((v) => !v); }}
+              title="Add inside"
+            >
               <Plus size={11} />
             </button>
-          )}
+            {addOpen && <AddTypeMenu onPick={handleAddChild} onClose={() => setAddOpen(false)} />}
+          </div>
           <button className="tree-action-btn" onClick={handleRenameStart} title="Rename">
             <Pencil size={11} />
           </button>
@@ -176,7 +292,7 @@ function TreeNode({ node, depth, currentNodeId, selectNode, addNode, updateNode,
         </div>
       </div>
 
-      {isExpandable && expanded && node.children && node.children.length > 0 && (
+      {hasChildren && expanded && (
         <div>
           {node.children.map((child) => (
             <TreeNode
@@ -184,10 +300,16 @@ function TreeNode({ node, depth, currentNodeId, selectNode, addNode, updateNode,
               node={child}
               depth={depth + 1}
               currentNodeId={currentNodeId}
+              wordCounts={wordCounts}
               selectNode={selectNode}
               addNode={addNode}
               updateNode={updateNode}
               deleteNode={deleteNode}
+              dragId={dragId}
+              setDragId={setDragId}
+              dropTarget={dropTarget}
+              setDropTarget={setDropTarget}
+              onDrop={onDrop}
             />
           ))}
         </div>

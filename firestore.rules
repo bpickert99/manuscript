@@ -8,17 +8,31 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Review links: a snapshot of selected chapters, publicly readable by
-    // anyone who has the token (the document ID). Never grants access to
-    // the owner's live /users/{uid}/nodes data.
+    // Review links: publicly readable by anyone who has the token (the
+    // document ID). Never grants access to the owner's live
+    // /users/{uid}/nodes data — shared content lives only in the
+    // subcollections below, copied there explicitly by the owner.
     match /shareLinks/{token} {
       allow get: if true;
       allow list: if request.auth != null && resource.data.ownerId == request.auth.uid;
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
 
-      // Margin comments — anyone with the link can read and post; only the
-      // manuscript's owner can delete (moderation).
+      // One doc per shared chapter/scene. The owner creates/syncs these;
+      // reviewers write back their suggested edits (tracked-change marks
+      // baked into `content`, never a silent overwrite of clean prose).
+      // No public delete — revoking the link is enough since nothing
+      // outside this subcollection points back to it.
+      match /chapters/{nodeId} {
+        allow get, list: if true;
+        allow create, update: if request.resource.data.title is string
+                               && request.resource.data.title.size() < 300;
+        allow delete: if request.auth != null
+                       && get(/databases/$(database)/documents/shareLinks/$(token)).data.ownerId == request.auth.uid;
+      }
+
+      // Chapter-level discussion threads — anyone with the link can read
+      // and post; only the manuscript's owner can delete (moderation).
       match /comments/{commentId} {
         allow get, list: if true;
         allow create: if request.resource.data.authorName is string

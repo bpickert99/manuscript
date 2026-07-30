@@ -11,20 +11,22 @@ function findInTree(list, id) {
   return null;
 }
 
-// A corkboard-style layout of the currently selected node's structure:
-// direct children with their own children become groups (e.g. chapters),
-// each showing a row of cards for its own children (e.g. scenes). Cards
-// and groups are both drag-to-reorder/reparent, which moves the same
-// underlying nodes the sidebar and editor use.
+// A corkboard-style layout of the currently selected node's structure, in
+// the same order as the sidebar/manuscript view: each direct child is a
+// "section" — if it has children of its own (e.g. a chapter) it shows as a
+// header with a row of cards for its children (e.g. scenes); if it's a
+// leaf it shows as a single card in that same position. Sections reorder
+// against each other; cards reorder against their siblings within a
+// section — both go through the same moveNode action the sidebar uses.
 export default function LayoutView() {
-  const { currentNodeId, nodes, addNode, updateNode, deleteNode, moveNode, selectNode } = useApp();
+  const { currentNodeId, nodes, addNode, updateNode, deleteNode, moveNode } = useApp();
   const tree = buildTree(nodes);
   const node = currentNodeId ? findInTree(tree, currentNodeId) : null;
 
   const [dragCardId, setDragCardId] = useState(null);
   const [cardDropTarget, setCardDropTarget] = useState(null); // { groupId, index }
-  const [dragGroupId, setDragGroupId] = useState(null);
-  const [groupDropIndex, setGroupDropIndex] = useState(null);
+  const [dragSectionId, setDragSectionId] = useState(null);
+  const [sectionDropIndex, setSectionDropIndex] = useState(null);
 
   if (!node) {
     return (
@@ -33,9 +35,6 @@ export default function LayoutView() {
       </div>
     );
   }
-
-  const groups = node.children.filter((c) => c.children && c.children.length > 0);
-  const looseCards = node.children.filter((c) => !c.children || c.children.length === 0);
 
   function handleCardDragOver(e, groupId, index) {
     e.preventDefault();
@@ -52,26 +51,28 @@ export default function LayoutView() {
     setCardDropTarget(null);
   }
 
-  async function handleGroupRowDrop(groupId) {
+  async function handleGroupRowDrop(e, groupId, appendCount) {
+    e.preventDefault();
+    e.stopPropagation();
     if (!dragCardId) return;
-    const group = groups.find((g) => g.id === groupId);
-    await moveNode(dragCardId, groupId, group ? group.children.length : 0);
+    await moveNode(dragCardId, groupId, appendCount);
     setDragCardId(null);
     setCardDropTarget(null);
   }
 
-  function handleGroupDragOver(e, index) {
+  function handleSectionDragOver(e, index) {
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
-    const relX = (e.clientX - rect.left) / rect.width;
-    setGroupDropIndex(relX < 0.5 ? index : index + 1);
+    const relY = (e.clientY - rect.top) / rect.height;
+    setSectionDropIndex(relY < 0.5 ? index : index + 1);
   }
 
-  async function handleGroupDrop() {
-    if (dragGroupId == null || groupDropIndex == null) return;
-    await moveNode(dragGroupId, node.id, groupDropIndex);
-    setDragGroupId(null);
-    setGroupDropIndex(null);
+  async function handleSectionDrop(e) {
+    e.preventDefault();
+    if (dragSectionId == null || sectionDropIndex == null) return;
+    await moveNode(dragSectionId, node.id, sectionDropIndex);
+    setDragSectionId(null);
+    setSectionDropIndex(null);
   }
 
   return (
@@ -85,81 +86,84 @@ export default function LayoutView() {
       </div>
 
       <div className="layout-scroll">
-        {looseCards.length > 0 && (
-          <div className="layout-group">
-            <div className="layout-card-row" onDragOver={(e) => e.preventDefault()} onDrop={() => handleGroupRowDrop(node.id)}>
-              {looseCards.map((c, i) => (
-                <LayoutCard
-                  key={c.id}
-                  card={c}
-                  isDragging={dragCardId === c.id}
-                  isDropBefore={cardDropTarget?.groupId === node.id && cardDropTarget.index === i}
-                  onSelect={() => selectNode(c.id)}
-                  onDragStart={() => setDragCardId(c.id)}
-                  onDragEnd={() => { setDragCardId(null); setCardDropTarget(null); }}
-                  onDragOver={(e) => handleCardDragOver(e, node.id, i)}
-                  onDrop={handleCardDrop}
-                  onRename={(title) => updateNode(c.id, { title })}
-                  onNotesChange={(notesVal) => updateNode(c.id, { notes: notesVal })}
-                  onDelete={() => { if (window.confirm('Delete "' + c.title + '"?')) deleteNode(c.id); }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        {node.children.map((section, si) => {
+          const hasKids = section.children && section.children.length > 0;
+          const sectionClass =
+            "layout-group" +
+            (dragSectionId === section.id ? " dragging" : "") +
+            (sectionDropIndex === si ? " drop-before" : "") +
+            (si === node.children.length - 1 && sectionDropIndex === si + 1 ? " drop-after" : "");
 
-        {groups.map((group, gi) => (
-          <div
-            className={"layout-group" + (dragGroupId === group.id ? " dragging" : "") + (groupDropIndex === gi ? " drop-before" : "") + (groupDropIndex === gi + 1 && gi === groups.length - 1 ? " drop-after" : "")}
-            key={group.id}
-            onDragOver={(e) => handleGroupDragOver(e, gi)}
-            onDrop={handleGroupDrop}
-          >
-            <div
-              className="layout-group-header"
-              draggable
-              onDragStart={(e) => { e.stopPropagation(); setDragGroupId(group.id); }}
-              onDragEnd={() => { setDragGroupId(null); setGroupDropIndex(null); }}
-            >
-              <GripVertical size={13} className="layout-group-grip" />
-              <input
-                className="layout-group-title"
-                value={group.title}
-                onChange={(e) => updateNode(group.id, { title: e.target.value })}
-              />
-              <button
-                className="tree-action-btn danger"
-                title="Delete section"
-                onClick={() => { if (window.confirm('Delete "' + group.title + '" and everything in it?')) deleteNode(group.id); }}
+          if (!hasKids) {
+            return (
+              <div key={section.id} className={sectionClass} onDragOver={(e) => handleSectionDragOver(e, si)} onDrop={handleSectionDrop}>
+                <LayoutCard
+                  card={section}
+                  isDragging={dragSectionId === section.id}
+                  isDropBefore={false}
+                  onDragStart={() => setDragSectionId(section.id)}
+                  onDragEnd={() => { setDragSectionId(null); setSectionDropIndex(null); }}
+                  onDragOver={(e) => handleSectionDragOver(e, si)}
+                  onDrop={handleSectionDrop}
+                  onRename={(title) => updateNode(section.id, { title })}
+                  onNotesChange={(notesVal) => updateNode(section.id, { notes: notesVal })}
+                  onDelete={() => { if (window.confirm('Delete "' + section.title + '"?')) deleteNode(section.id); }}
+                />
+              </div>
+            );
+          }
+
+          return (
+            <div key={section.id} className={sectionClass} onDragOver={(e) => handleSectionDragOver(e, si)} onDrop={handleSectionDrop}>
+              <div
+                className="layout-group-header"
+                draggable
+                onDragStart={(e) => { e.stopPropagation(); setDragSectionId(section.id); }}
+                onDragEnd={() => { setDragSectionId(null); setSectionDropIndex(null); }}
               >
-                <Trash2 size={12} />
-              </button>
-            </div>
-            <div className="layout-card-row" onDragOver={(e) => e.preventDefault()} onDrop={() => handleGroupRowDrop(group.id)}>
-              {group.children.map((c, i) => (
-                <LayoutCard
-                  key={c.id}
-                  card={c}
-                  isDragging={dragCardId === c.id}
-                  isDropBefore={cardDropTarget?.groupId === group.id && cardDropTarget.index === i}
-                  onSelect={() => selectNode(c.id)}
-                  onDragStart={() => setDragCardId(c.id)}
-                  onDragEnd={() => { setDragCardId(null); setCardDropTarget(null); }}
-                  onDragOver={(e) => handleCardDragOver(e, group.id, i)}
-                  onDrop={handleCardDrop}
-                  onRename={(title) => updateNode(c.id, { title })}
-                  onNotesChange={(notesVal) => updateNode(c.id, { notes: notesVal })}
-                  onDelete={() => { if (window.confirm('Delete "' + c.title + '"?')) deleteNode(c.id); }}
+                <GripVertical size={13} className="layout-group-grip" />
+                <input
+                  className="layout-group-title"
+                  value={section.title}
+                  onChange={(e) => updateNode(section.id, { title: e.target.value })}
                 />
-              ))}
-              <button className="layout-add-card" onClick={() => addNode('scene', group.id)}>
-                <Plus size={16} />
-              </button>
+                <button
+                  className="tree-action-btn danger"
+                  title="Delete section"
+                  onClick={() => { if (window.confirm('Delete "' + section.title + '" and everything in it?')) deleteNode(section.id); }}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+              <div
+                className="layout-card-row"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => handleGroupRowDrop(e, section.id, section.children.length)}
+              >
+                {section.children.map((c, i) => (
+                  <LayoutCard
+                    key={c.id}
+                    card={c}
+                    isDragging={dragCardId === c.id}
+                    isDropBefore={cardDropTarget?.groupId === section.id && cardDropTarget.index === i}
+                    onDragStart={() => setDragCardId(c.id)}
+                    onDragEnd={() => { setDragCardId(null); setCardDropTarget(null); }}
+                    onDragOver={(e) => handleCardDragOver(e, section.id, i)}
+                    onDrop={handleCardDrop}
+                    onRename={(title) => updateNode(c.id, { title })}
+                    onNotesChange={(notesVal) => updateNode(c.id, { notes: notesVal })}
+                    onDelete={() => { if (window.confirm('Delete "' + c.title + '"?')) deleteNode(c.id); }}
+                  />
+                ))}
+                <button className="layout-add-card" onClick={() => addNode('scene', section.id)}>
+                  <Plus size={16} />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
-        {groups.length === 0 && looseCards.length === 0 && (
+        {node.children.length === 0 && (
           <div className="layout-empty">
             <p>Nothing here yet. Add a section to start laying out "{node.title}".</p>
           </div>
@@ -169,7 +173,7 @@ export default function LayoutView() {
   );
 }
 
-function LayoutCard({ card, isDragging, isDropBefore, onSelect, onDragStart, onDragEnd, onDragOver, onDrop, onRename, onNotesChange, onDelete }) {
+function LayoutCard({ card, isDragging, isDropBefore, onDragStart, onDragEnd, onDragOver, onDrop, onRename, onNotesChange, onDelete }) {
   const [titleVal, setTitleVal] = useState(card.title);
   const [notesVal, setNotesVal] = useState(card.notes || '');
   const titleTimer = useRef(null);
@@ -214,7 +218,6 @@ function LayoutCard({ card, isDragging, isDropBefore, onSelect, onDragStart, onD
         onClick={(e) => e.stopPropagation()}
         placeholder="Notes..."
       />
-      <button className="layout-card-open" onClick={onSelect}>Open in Write →</button>
     </div>
   );
 }

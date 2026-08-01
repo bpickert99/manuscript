@@ -97,12 +97,14 @@ documents at once through one continuous page.
 
 The **Layout** tab shows the selected node's structure as a corkboard:
 each direct child with its own children becomes a labeled section, and its
-children become draggable cards. Rename a card or section in place, jot a
-note on a card (the same note that shows in the right-hand scratchpad),
-and drag cards to reorder them or move them into a different section —
-drag a section header to reorder sections. All of it goes through the same
-`moveNode`/`updateNode` actions the sidebar and editor use, so the order
-you set here is the order everywhere else (sidebar tree, manuscript view,
+children become draggable cards. Rename a card or section in place, and
+write a short **description** on a card — a planning summary of that
+scene, kept separate from both its prose and its private notes (the
+scratchpad on the right stays its own thing). Drag cards to reorder them
+or move them into a different section — drag a section header to reorder
+sections. All of it goes through the same `moveNode`/`updateNode` actions
+the sidebar and editor use, so the order you set here is the order
+everywhere else (sidebar tree, manuscript view,
 Plot Grid rows). "Open in Write →" jumps straight to editing that card.
 
 ## Just Write mode

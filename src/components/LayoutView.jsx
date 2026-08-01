@@ -106,7 +106,7 @@ export default function LayoutView() {
                   onDragOver={(e) => handleSectionDragOver(e, si)}
                   onDrop={handleSectionDrop}
                   onRename={(title) => updateNode(section.id, { title })}
-                  onNotesChange={(notesVal) => updateNode(section.id, { notes: notesVal })}
+                  onDescriptionChange={(val) => updateNode(section.id, { description: val })}
                   onDelete={() => { if (window.confirm('Delete "' + section.title + '"?')) deleteNode(section.id); }}
                 />
               </div>
@@ -151,7 +151,7 @@ export default function LayoutView() {
                     onDragOver={(e) => handleCardDragOver(e, section.id, i)}
                     onDrop={handleCardDrop}
                     onRename={(title) => updateNode(c.id, { title })}
-                    onNotesChange={(notesVal) => updateNode(c.id, { notes: notesVal })}
+                    onDescriptionChange={(val) => updateNode(c.id, { description: val })}
                     onDelete={() => { if (window.confirm('Delete "' + c.title + '"?')) deleteNode(c.id); }}
                   />
                 ))}
@@ -173,15 +173,15 @@ export default function LayoutView() {
   );
 }
 
-function LayoutCard({ card, isDragging, isDropBefore, onDragStart, onDragEnd, onDragOver, onDrop, onRename, onNotesChange, onDelete }) {
+function LayoutCard({ card, isDragging, isDropBefore, onDragStart, onDragEnd, onDragOver, onDrop, onRename, onDescriptionChange, onDelete }) {
   const [titleVal, setTitleVal] = useState(card.title);
-  const [notesVal, setNotesVal] = useState(card.notes || '');
+  const [descVal, setDescVal] = useState(card.description || '');
   const titleTimer = useRef(null);
-  const notesTimer = useRef(null);
+  const descTimer = useRef(null);
 
   useEffect(() => { setTitleVal(card.title); }, [card.id, card.title]);
-  useEffect(() => { setNotesVal(card.notes || ''); }, [card.id]);
-  useEffect(() => () => { clearTimeout(titleTimer.current); clearTimeout(notesTimer.current); }, []);
+  useEffect(() => { setDescVal(card.description || ''); }, [card.id]);
+  useEffect(() => () => { clearTimeout(titleTimer.current); clearTimeout(descTimer.current); }, []);
 
   function handleTitleChange(e) {
     setTitleVal(e.target.value);
@@ -189,10 +189,10 @@ function LayoutCard({ card, isDragging, isDropBefore, onDragStart, onDragEnd, on
     titleTimer.current = setTimeout(() => onRename(e.target.value), 900);
   }
 
-  function handleNotesChange(e) {
-    setNotesVal(e.target.value);
-    clearTimeout(notesTimer.current);
-    notesTimer.current = setTimeout(() => onNotesChange(e.target.value), 900);
+  function handleDescChange(e) {
+    setDescVal(e.target.value);
+    clearTimeout(descTimer.current);
+    descTimer.current = setTimeout(() => onDescriptionChange(e.target.value), 900);
   }
 
   return (
@@ -213,10 +213,10 @@ function LayoutCard({ card, isDragging, isDropBefore, onDragStart, onDragEnd, on
       </div>
       <textarea
         className="layout-card-notes"
-        value={notesVal}
-        onChange={handleNotesChange}
+        value={descVal}
+        onChange={handleDescChange}
         onClick={(e) => e.stopPropagation()}
-        placeholder="Notes..."
+        placeholder="Description of this scene — a summary, not the prose..."
       />
     </div>
   );

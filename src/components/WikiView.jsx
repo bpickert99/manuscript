@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -7,7 +7,10 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useApp } from '../context/AppContext';
-import { Plus, Trash2, Link } from 'lucide-react';
+import { WikiLink } from '../lib/wikiLinkExtension';
+import { findBacklinks, findOutgoing } from '../lib/wikiLinks';
+import WikiGraph from './WikiGraph';
+import { Plus, Trash2, Waypoints, Link2 } from 'lucide-react';
 
 const CATEGORIES = ['Character', 'Location', 'Item', 'Event', 'Concept', 'Other'];
 
@@ -17,14 +20,29 @@ export default function WikiView() {
   const { user, currentProject } = useApp();
   const [entries, setEntries] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
-  const [showLinks, setShowLinks] = useState(true);
+  const [showGraph, setShowGraph] = useState(false);
   const [titleVal, setTitleVal] = useState('');
   const [categoryVal, setCategoryVal] = useState('Other');
   const [saveStatus, setSaveStatus] = useState('saved');
-  const saveTimer = React.useRef(null);
-  const titleTimer = React.useRef(null);
+  const saveTimer = useRef(null);
+  const titleTimer = useRef(null);
+  const entriesRef = useRef([]);
 
   const selected = entries.find((e) => e.id === selectedId) || null;
+
+  useEffect(() => { entriesRef.current = entries; }, [entries]);
+
+  async function createEntry(title) {
+    if (!user || !currentProject) return null;
+    const ref = await addDoc(collection(db, 'users', user.uid, 'wikiEntries'), {
+      projectId: currentProject.id,
+      title: title || 'New Entry',
+      category: 'Other',
+      content: null,
+      createdAt: serverTimestamp(),
+    });
+    return ref.id;
+  }
 
   const editor = useEditor({
     extensions: [
@@ -39,7 +57,12 @@ export default function WikiView() {
         horizontalRule: false,
         strike: false,
       }),
-      Placeholder.configure({ placeholder: 'Write about this entry...' }),
+      WikiLink.configure({
+        getEntries: () => entriesRef.current,
+        onCreateNew: (title) => createEntry(title),
+        onNavigate: (entryId) => setSelectedId(entryId),
+      }),
+      Placeholder.configure({ placeholder: 'Write about this entry... type [[ to link another entry' }),
     ],
     content: '',
     onUpdate({ editor: ed }) {
@@ -80,8 +103,10 @@ export default function WikiView() {
     }
     setTitleVal(selected.title || '');
     setCategoryVal(selected.category || 'Other');
+    const incoming = JSON.stringify(selected.content || '');
+    const current = JSON.stringify(editor.getJSON());
     if (selected.content) {
-      editor.commands.setContent(selected.content, false);
+      if (incoming !== current) editor.commands.setContent(selected.content, false);
     } else {
       editor.commands.clearContent();
     }
@@ -93,14 +118,8 @@ export default function WikiView() {
   }, []);
 
   async function addEntry() {
-    const ref = await addDoc(collection(db, 'users', user.uid, 'wikiEntries'), {
-      projectId: currentProject.id,
-      title: 'New Entry',
-      category: 'Other',
-      content: null,
-      createdAt: serverTimestamp(),
-    });
-    setSelectedId(ref.id);
+    const id = await createEntry('New Entry');
+    setSelectedId(id);
   }
 
   async function deleteEntry(e, entryId) {
@@ -138,6 +157,10 @@ export default function WikiView() {
     return acc;
   }, {});
 
+  const backlinks = selected ? findBacklinks(entries, selected.id) : [];
+  const outgoing = selected ? findOutgoing(entries, selected) : [];
+  const connections = [...outgoing, ...backlinks.filter((b) => !outgoing.some((o) => o.id === b.id))];
+
   return (
     <div className="wiki-wrap">
       <div className="wiki-sidebar">
@@ -150,7 +173,7 @@ export default function WikiView() {
         <div className="wiki-list">
           {entries.length === 0 ? (
             <div style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              No entries. Click + to create one.
+              No entries. Click + to create one, or type [[ in any entry to create and link one.
             </div>
           ) : (
             Object.entries(grouped).map(([cat, catEntries]) => (
@@ -220,23 +243,47 @@ export default function WikiView() {
             <div className="editor-toolbar-sep" />
 
             <button
-              className={"icon-btn" + (showLinks ? " active" : "")}
-              onClick={() => setShowLinks(!showLinks)}
-              title={showLinks ? "Hide wiki links" : "Show wiki links"}
+              className={"icon-btn" + (showGraph ? " active" : "")}
+              onClick={() => setShowGraph(!showGraph)}
+              title={showGraph ? "Show entry text" : "Show local graph"}
             >
-              <Link size={14} style={{ opacity: showLinks ? 1 : 0.4 }} />
+              <Waypoints size={14} />
             </button>
             <span className="wiki-link-indicator">
-              {showLinks ? 'Links visible' : 'Links hidden'}
+              {connections.length} connection{connections.length === 1 ? '' : 's'}
             </span>
 
             <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
               {saveStatus === 'unsaved' ? 'Unsaved' : saveStatus === 'saving' ? 'Saving...' : 'Saved'}
             </span>
           </div>
-          <div className={"wiki-editor-body" + (showLinks ? " wiki-links-on" : " wiki-links-off")}>
-            <EditorContent editor={editor} />
-          </div>
+
+          {showGraph ? (
+            <div className="wiki-graph-wrap">
+              <WikiGraph entry={selected} connections={connections} onNavigate={setSelectedId} />
+            </div>
+          ) : (
+            <>
+              <div className="wiki-editor-body">
+                <EditorContent editor={editor} />
+              </div>
+              {backlinks.length > 0 && (
+                <div className="wiki-backlinks">
+                  <div className="wiki-backlinks-title">
+                    <Link2 size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: -1 }} />
+                    Linked from {backlinks.length} {backlinks.length === 1 ? 'entry' : 'entries'}
+                  </div>
+                  <div className="wiki-backlinks-list">
+                    {backlinks.map((b) => (
+                      <button key={b.id} className="wiki-backlink-item" onClick={() => setSelectedId(b.id)}>
+                        {b.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       ) : (
         <div className="wiki-empty">

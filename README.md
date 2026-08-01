@@ -66,11 +66,10 @@ Or configure GitHub Actions to build and deploy automatically.
 | Offline sync via Firebase | ✅ |
 | Plot grid (scenes × threads) + beat-sheet templates | ✅ |
 | Story map (Leaflet / OpenStreetMap) | ✅ |
-| Wiki with categories | ✅ |
+| Obsidian-style Wiki — [[linking]] autocomplete, backlinks, local graph | ✅ |
 | Mobile responsive | ✅ |
 | Shareable review links with tracked suggested edits + comments | ✅ |
 | Export to PDF / Word | 🔜 Iteration 4 |
-| Wiki [[linking]] auto-suggestions | 🔜 Iteration 4 |
 | Real-time multi-account collaboration on a project | 🔜 Iteration 4 |
 
 ## The tree and the manuscript view
@@ -148,6 +147,26 @@ it); and structural edits (drag/drop text moves) aren't specially
 optimized — the tracked-change diff can end up larger than the edit if you
 move text around a lot instead of typing in place.
 
+## Wiki
+
+The Wiki works like a small Obsidian vault instead of a flat article list.
+Type `[[` anywhere in an entry's text and a dropdown searches your other
+entries as you type — pick one to insert an atomic, clickable link, or
+pick "Create ..." to make a brand-new entry and link it in one step. Links
+are stored by the target entry's id, not its title text, so renaming an
+entry never breaks anything that links to it; a link whose target has
+since been deleted renders with a dashed red outline instead of silently
+breaking.
+
+Below the text of each entry, a **backlinks** strip lists every other
+entry that links to this one — the reverse direction Obsidian is built
+around, so you can find out who references a character or place without
+remembering yourself. The waypoints icon in the toolbar swaps the entry
+text for a **local graph**: the current entry in the center, everything
+it links to or is linked from arranged around it, click any node to jump
+there. Categories are still there in the sidebar for browsing, but linking
+is now how entries actually connect to each other.
+
 ## Plot Grid beat templates
 
 **Apply Beat Template** in the Plot Grid toolbar tags your existing scenes
@@ -159,7 +178,5 @@ template overwrites existing tags.
 ## Iteration 4 plan
 
 **Export**: PDF via browser print (CSS @media print already included), Word via the `docx` npm package.
-
-**Wiki linking**: A custom Tiptap `WikiLink` mark extension that detects `[[` input and opens a dropdown of existing entries. The toggle button in the wiki toolbar already wires up the CSS to show/hide these marks.
 
 **Collaboration**: Review links carry suggestions, not true co-writing. A second Google account editing the same project live needs a data-model change — either per-project collaborator lists checked in `firestore.rules`, or moving projects out from under `/users/{uid}` into their own top-level collection with a `members` field.

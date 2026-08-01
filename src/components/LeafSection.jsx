@@ -3,6 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import CharacterCount from '@tiptap/extension-character-count';
 import Placeholder from '@tiptap/extension-placeholder';
+import TextAlign from '@tiptap/extension-text-align';
 import { useApp } from '../context/AppContext';
 import { Indent } from '../lib/indentExtension';
 import { JustWrite } from '../lib/justWriteExtension';
@@ -29,6 +30,7 @@ export default function LeafSection({ node, onFocusEditor }) {
       CharacterCount,
       Indent,
       JustWrite,
+      TextAlign.configure({ types: ['paragraph'] }),
       Placeholder.configure({ placeholder: 'Begin writing...' }),
     ],
     content: node.content || '',

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
 import ManuscriptSidebar from './ManuscriptSidebar';
 import TopNav from './TopNav';
 import Editor from './Editor';
@@ -9,9 +10,10 @@ import MapView from './MapView';
 import WikiView from './WikiView';
 
 export default function WorkspaceLayout() {
-  const [activeTab, setActiveTab] = useState('write');
+  const { activeTab, setActiveTab } = useApp();
   const [notesOpen, setNotesOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const notesVisible = notesOpen && activeTab === 'write';
 
   return (
     <div className="workspace">
@@ -42,8 +44,8 @@ export default function WorkspaceLayout() {
             {activeTab === 'map' && <MapView />}
             {activeTab === 'wiki' && <WikiView />}
           </div>
-          <div className={"notes-panel-wrap" + (notesOpen ? " open" : "")}>
-            <NotesPanel />
+          <div className={"notes-panel-wrap" + (notesVisible ? " open" : "")}>
+            {notesVisible && <NotesPanel />}
           </div>
         </div>
       </div>

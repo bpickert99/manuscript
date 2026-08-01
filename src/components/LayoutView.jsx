@@ -1,174 +1,251 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp, buildTree } from '../context/AppContext';
-import { Plus, Trash2, GripVertical } from 'lucide-react';
+import AddTypeMenu from './AddTypeMenu';
+import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight } from 'lucide-react';
 
-function findInTree(list, id) {
-  for (const n of list) {
-    if (n.id === id) return n;
-    const found = findInTree(n.children, id);
-    if (found) return found;
-  }
-  return null;
-}
-
-// A corkboard-style layout of the currently selected node's structure, in
-// the same order as the sidebar/manuscript view: each direct child is a
-// "section" — if it has children of its own (e.g. a chapter) it shows as a
-// header with a row of cards for its children (e.g. scenes); if it's a
-// leaf it shows as a single card in that same position. Sections reorder
-// against each other; cards reorder against their siblings within a
-// section — both go through the same moveNode action the sidebar uses.
+// Always shows a whole book's structure, independent of whatever's
+// selected for writing — picking a book here is its own, separate
+// selection so this view never gets scoped down by the sidebar.
 export default function LayoutView() {
-  const { currentNodeId, nodes, addNode, updateNode, deleteNode, moveNode } = useApp();
+  const { nodes, addNode, updateNode, deleteNode, moveNode } = useApp();
   const tree = buildTree(nodes);
-  const node = currentNodeId ? findInTree(tree, currentNodeId) : null;
+  const books = tree; // project root nodes — typically Books, but any root works
+  const [layoutBookId, setLayoutBookId] = useState(null);
 
-  const [dragCardId, setDragCardId] = useState(null);
-  const [cardDropTarget, setCardDropTarget] = useState(null); // { groupId, index }
-  const [dragSectionId, setDragSectionId] = useState(null);
-  const [sectionDropIndex, setSectionDropIndex] = useState(null);
+  useEffect(() => {
+    if (!layoutBookId && books.length > 0) setLayoutBookId(books[0].id);
+    if (layoutBookId && !books.some((b) => b.id === layoutBookId) && books.length > 0) {
+      setLayoutBookId(books[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [books.map((b) => b.id).join(',')]);
 
-  if (!node) {
+  const book = books.find((b) => b.id === layoutBookId) || null;
+
+  const [dragId, setDragId] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null); // { parentId, index }
+  const [addAnchor, setAddAnchor] = useState(null); // { el, parentId }
+
+  if (books.length === 0) {
     return (
       <div className="layout-empty">
-        <p>Select a book or part from the sidebar to lay out its structure.</p>
+        <p>Add a book from the sidebar to start laying out its structure.</p>
       </div>
     );
   }
+  if (!book) return null;
 
-  function handleCardDragOver(e, groupId, index) {
-    e.preventDefault();
-    e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const relX = (e.clientX - rect.left) / rect.width;
-    setCardDropTarget({ groupId, index: relX < 0.5 ? index : index + 1 });
+  async function handleDrop() {
+    if (!dragId || !dropTarget) return;
+    await moveNode(dragId, dropTarget.parentId, dropTarget.index);
+    setDragId(null);
+    setDropTarget(null);
   }
 
-  async function handleCardDrop() {
-    if (!dragCardId || !cardDropTarget) return;
-    await moveNode(dragCardId, cardDropTarget.groupId, cardDropTarget.index);
-    setDragCardId(null);
-    setCardDropTarget(null);
-  }
-
-  async function handleGroupRowDrop(e, groupId, appendCount) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!dragCardId) return;
-    await moveNode(dragCardId, groupId, appendCount);
-    setDragCardId(null);
-    setCardDropTarget(null);
-  }
-
-  function handleSectionDragOver(e, index) {
-    e.preventDefault();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const relY = (e.clientY - rect.top) / rect.height;
-    setSectionDropIndex(relY < 0.5 ? index : index + 1);
-  }
-
-  async function handleSectionDrop(e) {
-    e.preventDefault();
-    if (dragSectionId == null || sectionDropIndex == null) return;
-    await moveNode(dragSectionId, node.id, sectionDropIndex);
-    setDragSectionId(null);
-    setSectionDropIndex(null);
+  async function handleAddPick(type) {
+    if (!addAnchor) return;
+    await addNode(type, addAnchor.parentId);
+    setAddAnchor(null);
   }
 
   return (
     <div className="layout-wrap">
       <div className="layout-toolbar">
-        <span className="layout-toolbar-title">Layout — {node.title}</span>
-        <button className="btn-sm" onClick={() => addNode('chapter', node.id)}>
+        {books.length > 1 ? (
+          <div className="layout-book-tabs">
+            {books.map((b) => (
+              <button
+                key={b.id}
+                className={"layout-book-tab" + (b.id === layoutBookId ? " active" : "")}
+                onClick={() => setLayoutBookId(b.id)}
+              >
+                {b.title}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span className="layout-toolbar-title">Layout — {book.title}</span>
+        )}
+        <button
+          className="btn-sm"
+          onClick={(e) => setAddAnchor({ el: e.currentTarget, parentId: book.id })}
+        >
           <Plus size={12} style={{ display: 'inline', marginRight: 3, verticalAlign: -2 }} />
           Add Section
         </button>
+        {addAnchor && addAnchor.parentId === book.id && (
+          <AddTypeMenu anchorEl={addAnchor.el} onPick={handleAddPick} onClose={() => setAddAnchor(null)} />
+        )}
       </div>
 
       <div className="layout-scroll">
-        {node.children.map((section, si) => {
-          const hasKids = section.children && section.children.length > 0;
-          const sectionClass =
-            "layout-group" +
-            (dragSectionId === section.id ? " dragging" : "") +
-            (sectionDropIndex === si ? " drop-before" : "") +
-            (si === node.children.length - 1 && sectionDropIndex === si + 1 ? " drop-after" : "");
-
-          if (!hasKids) {
-            return (
-              <div key={section.id} className={sectionClass} onDragOver={(e) => handleSectionDragOver(e, si)} onDrop={handleSectionDrop}>
-                <LayoutCard
-                  card={section}
-                  isDragging={dragSectionId === section.id}
-                  isDropBefore={false}
-                  onDragStart={() => setDragSectionId(section.id)}
-                  onDragEnd={() => { setDragSectionId(null); setSectionDropIndex(null); }}
-                  onDragOver={(e) => handleSectionDragOver(e, si)}
-                  onDrop={handleSectionDrop}
-                  onRename={(title) => updateNode(section.id, { title })}
-                  onDescriptionChange={(val) => updateNode(section.id, { description: val })}
-                  onDelete={() => { if (window.confirm('Delete "' + section.title + '"?')) deleteNode(section.id); }}
-                />
-              </div>
-            );
-          }
-
-          return (
-            <div key={section.id} className={sectionClass} onDragOver={(e) => handleSectionDragOver(e, si)} onDrop={handleSectionDrop}>
-              <div
-                className="layout-group-header"
-                draggable
-                onDragStart={(e) => { e.stopPropagation(); setDragSectionId(section.id); }}
-                onDragEnd={() => { setDragSectionId(null); setSectionDropIndex(null); }}
-              >
-                <GripVertical size={13} className="layout-group-grip" />
-                <input
-                  className="layout-group-title"
-                  value={section.title}
-                  onChange={(e) => updateNode(section.id, { title: e.target.value })}
-                />
-                <button
-                  className="tree-action-btn danger"
-                  title="Delete section"
-                  onClick={() => { if (window.confirm('Delete "' + section.title + '" and everything in it?')) deleteNode(section.id); }}
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-              <div
-                className="layout-card-row"
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                onDrop={(e) => handleGroupRowDrop(e, section.id, section.children.length)}
-              >
-                {section.children.map((c, i) => (
-                  <LayoutCard
-                    key={c.id}
-                    card={c}
-                    isDragging={dragCardId === c.id}
-                    isDropBefore={cardDropTarget?.groupId === section.id && cardDropTarget.index === i}
-                    onDragStart={() => setDragCardId(c.id)}
-                    onDragEnd={() => { setDragCardId(null); setCardDropTarget(null); }}
-                    onDragOver={(e) => handleCardDragOver(e, section.id, i)}
-                    onDrop={handleCardDrop}
-                    onRename={(title) => updateNode(c.id, { title })}
-                    onDescriptionChange={(val) => updateNode(c.id, { description: val })}
-                    onDelete={() => { if (window.confirm('Delete "' + c.title + '"?')) deleteNode(c.id); }}
-                  />
-                ))}
-                <button className="layout-add-card" onClick={() => addNode('scene', section.id)}>
-                  <Plus size={16} />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-
-        {node.children.length === 0 && (
-          <div className="layout-empty">
-            <p>Nothing here yet. Add a section to start laying out "{node.title}".</p>
-          </div>
-        )}
+        <SectionChildren
+          node={book}
+          depth={0}
+          dragId={dragId}
+          setDragId={setDragId}
+          dropTarget={dropTarget}
+          setDropTarget={setDropTarget}
+          onDrop={handleDrop}
+          addAnchor={addAnchor}
+          setAddAnchor={setAddAnchor}
+          onAddPick={handleAddPick}
+          updateNode={updateNode}
+          deleteNode={deleteNode}
+        />
       </div>
+    </div>
+  );
+}
+
+// Renders a node's children: consecutive leaves become a row of cards,
+// branches become nested, collapsible, indented sub-sections — recursing
+// to arbitrary depth so the whole book is always visible.
+function SectionChildren({ node, depth, ...dnd }) {
+  if (!node.children || node.children.length === 0) {
+    return (
+      <div
+        className="layout-empty-row"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => { e.preventDefault(); if (dnd.dragId) { dnd.setDropTarget({ parentId: node.id, index: 0 }); dnd.onDrop(); } }}
+      >
+        Nothing here yet.
+      </div>
+    );
+  }
+
+  const groups = [];
+  let row = [];
+  node.children.forEach((child, i) => {
+    const isLeaf = !child.children || child.children.length === 0;
+    if (isLeaf) {
+      row.push({ child, index: i });
+    } else {
+      if (row.length) { groups.push({ type: 'row', items: row }); row = []; }
+      groups.push({ type: 'branch', child, index: i });
+    }
+  });
+  if (row.length) groups.push({ type: 'row', items: row });
+
+  return groups.map((g, gi) =>
+    g.type === 'row' ? (
+      <CardRow key={'row-' + gi} parentId={node.id} items={g.items} {...dnd} />
+    ) : (
+      <Section key={g.child.id} node={g.child} depth={depth + 1} index={g.index} parentId={node.id} {...dnd} />
+    )
+  );
+}
+
+function CardRow({ parentId, items, dragId, setDragId, dropTarget, setDropTarget, onDrop, updateNode, deleteNode }) {
+  function onCardDragOver(e, index) {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relX = (e.clientX - rect.left) / rect.width;
+    setDropTarget({ parentId, index: relX < 0.5 ? index : index + 1 });
+  }
+
+  return (
+    <div
+      className="layout-card-row"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (dragId) { setDropTarget({ parentId, index: items[items.length - 1].index + 1 }); onDrop(); } }}
+    >
+      {items.map(({ child, index }) => (
+        <LayoutCard
+          key={child.id}
+          card={child}
+          isDragging={dragId === child.id}
+          isDropBefore={dropTarget?.parentId === parentId && dropTarget.index === index}
+          onDragStart={() => setDragId(child.id)}
+          onDragEnd={() => { setDragId(null); setDropTarget(null); }}
+          onDragOver={(e) => onCardDragOver(e, index)}
+          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(); }}
+          onRename={(title) => updateNode(child.id, { title })}
+          onDescriptionChange={(val) => updateNode(child.id, { description: val })}
+          onDelete={() => { if (window.confirm('Delete "' + child.title + '"?')) deleteNode(child.id); }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Section({ node, depth, index, parentId, dragId, setDragId, dropTarget, setDropTarget, onDrop, addAnchor, setAddAnchor, onAddPick, updateNode, deleteNode, ...rest }) {
+  const [expanded, setExpanded] = useState(true);
+  const isDragging = dragId === node.id;
+  const isDropBefore = dropTarget?.parentId === parentId && dropTarget.index === index;
+
+  function onHeaderDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relY = (e.clientY - rect.top) / rect.height;
+    setDropTarget({ parentId, index: relY < 0.5 ? index : index + 1 });
+  }
+
+  return (
+    <div
+      className={"layout-group" + (isDragging ? " dragging" : "") + (isDropBefore ? " drop-before" : "")}
+      style={{ marginLeft: depth * 18 }}
+    >
+      <div
+        className="layout-group-header"
+        draggable
+        onDragStart={(e) => { e.stopPropagation(); setDragId(node.id); }}
+        onDragEnd={() => { setDragId(null); setDropTarget(null); }}
+        onDragOver={onHeaderDragOver}
+        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(); }}
+      >
+        <button
+          className="tree-toggle"
+          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+          title={expanded ? 'Collapse' : 'Expand'}
+        >
+          {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        </button>
+        <GripVertical size={13} className="layout-group-grip" />
+        <input
+          className="layout-group-title"
+          value={node.title}
+          onChange={(e) => updateNode(node.id, { title: e.target.value })}
+        />
+        <div className="wiki-folder-actions" style={{ opacity: 1 }}>
+          <button
+            className="tree-action-btn"
+            onClick={(e) => { e.stopPropagation(); setAddAnchor({ el: e.currentTarget, parentId: node.id }); }}
+            title="Add inside"
+          >
+            <Plus size={11} />
+          </button>
+          <button
+            className="tree-action-btn danger"
+            onClick={(e) => { e.stopPropagation(); if (window.confirm('Delete "' + node.title + '" and everything in it?')) deleteNode(node.id); }}
+            title="Delete section"
+          >
+            <Trash2 size={11} />
+          </button>
+        </div>
+      </div>
+      {addAnchor?.parentId === node.id && (
+        <AddTypeMenu anchorEl={addAnchor.el} onPick={onAddPick} onClose={() => setAddAnchor(null)} />
+      )}
+      {expanded && (
+        <SectionChildren
+          node={node}
+          depth={depth}
+          dragId={dragId}
+          setDragId={setDragId}
+          dropTarget={dropTarget}
+          setDropTarget={setDropTarget}
+          onDrop={onDrop}
+          addAnchor={addAnchor}
+          setAddAnchor={setAddAnchor}
+          onAddPick={onAddPick}
+          updateNode={updateNode}
+          deleteNode={deleteNode}
+          {...rest}
+        />
+      )}
     </div>
   );
 }
@@ -202,7 +279,7 @@ function LayoutCard({ card, isDragging, isDropBefore, onDragStart, onDragEnd, on
       onDragStart={(e) => { e.stopPropagation(); onDragStart(); }}
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
-      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(); }}
+      onDrop={onDrop}
     >
       <div className="layout-card-header">
         <GripVertical size={12} className="layout-card-grip" />

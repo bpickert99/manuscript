@@ -11,6 +11,7 @@
   "dependencies": {
     "@tiptap/extension-character-count": "^2.4.0",
     "@tiptap/extension-placeholder": "^2.4.0",
+    "@tiptap/extension-text-align": "^2.27.2",
     "@tiptap/pm": "^2.4.0",
     "@tiptap/react": "^2.4.0",
     "@tiptap/starter-kit": "^2.4.0",

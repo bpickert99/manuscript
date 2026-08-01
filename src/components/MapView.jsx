@@ -7,7 +7,16 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useApp } from '../context/AppContext';
-import { MapPin, Trash2, Plus } from 'lucide-react';
+import { MapPin, Trash2, Plus, X, BookOpen } from 'lucide-react';
+
+const wikiIcon = new L.Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  className: 'map-pin-wiki-icon',
+});
 
 // Fix Leaflet default icon broken by Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -20,14 +29,19 @@ L.Icon.Default.mergeOptions({
 const US_CENTER = [39.5, -98.35];
 
 export default function MapView() {
-  const { user, currentProject, nodes } = useApp();
+  const {
+    user, currentProject, nodes, mapArmedEntryId, disarmMapPlacement,
+    mapFocusEntryId, clearMapFocus, openWikiEntry,
+  } = useApp();
   const [pins, setPins] = useState([]);
+  const [wikiEntries, setWikiEntries] = useState([]);
   const [pendingLatLng, setPendingLatLng] = useState(null);
   const [editingPin, setEditingPin] = useState(null);
   const [form, setForm] = useState({ title: '', description: '', type: 'location' });
   const mapRef = useRef(null);
 
   const scenes = nodes.filter((n) => n.type === 'scene');
+  const armedEntry = mapArmedEntryId ? wikiEntries.find((e) => e.id === mapArmedEntryId) : null;
 
   useEffect(() => {
     if (!user || !currentProject) return;
@@ -40,6 +54,24 @@ export default function MapView() {
     });
     return unsub;
   }, [user, currentProject]);
+
+  useEffect(() => {
+    if (!user || !currentProject) return;
+    const q = query(collection(db, 'users', user.uid, 'wikiEntries'), where('projectId', '==', currentProject.id));
+    const unsub = onSnapshot(q, (snap) => {
+      setWikiEntries(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, [user, currentProject]);
+
+  // Fly to the requested entry's pin once, then clear the request.
+  useEffect(() => {
+    if (!mapFocusEntryId || !mapRef.current) return;
+    const pin = pins.find((p) => p.wikiEntryId === mapFocusEntryId);
+    if (pin) mapRef.current.flyTo([pin.lat, pin.lng], 8, { duration: 0.8 });
+    clearMapFocus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapFocusEntryId, pins]);
 
   async function savePin() {
     if (!form.title.trim()) return;
@@ -66,6 +98,28 @@ export default function MapView() {
     await deleteDoc(doc(db, 'users', user.uid, 'mapPins', pinId));
   }
 
+  async function handleMapClick(latlng) {
+    if (mapArmedEntryId) {
+      const existing = pins.find((p) => p.wikiEntryId === mapArmedEntryId);
+      if (existing) {
+        await updateDoc(doc(db, 'users', user.uid, 'mapPins', existing.id), { lat: latlng.lat, lng: latlng.lng });
+      } else {
+        await addDoc(collection(db, 'users', user.uid, 'mapPins'), {
+          projectId: currentProject.id,
+          lat: latlng.lat,
+          lng: latlng.lng,
+          wikiEntryId: mapArmedEntryId,
+          type: 'wiki',
+          linkedSceneIds: [],
+          createdAt: serverTimestamp(),
+        });
+      }
+      disarmMapPlacement();
+      return;
+    }
+    openAddModal(latlng);
+  }
+
   function openAddModal(latlng) {
     setPendingLatLng(latlng);
     setForm({ title: '', description: '', type: 'location' });
@@ -90,6 +144,14 @@ export default function MapView() {
     }
   }
 
+  function pinTitle(pin) {
+    if (pin.wikiEntryId) {
+      const entry = wikiEntries.find((e) => e.id === pin.wikiEntryId);
+      return entry?.title || 'Untitled entry';
+    }
+    return pin.title;
+  }
+
   const showModal = pendingLatLng !== null || editingPin !== null;
 
   return (
@@ -97,7 +159,16 @@ export default function MapView() {
       <div className="map-toolbar">
         <MapPin size={14} style={{ color: 'var(--accent)' }} />
         <span className="plot-grid-toolbar-title">Story Map</span>
-        <span className="map-hint">Click the map to drop a pin</span>
+        {armedEntry ? (
+          <span className="map-armed-banner">
+            Click the map to place "{armedEntry.title}"
+            <button className="map-armed-cancel" onClick={disarmMapPlacement}>
+              <X size={12} />
+            </button>
+          </span>
+        ) : (
+          <span className="map-hint">Click the map to drop a pin</span>
+        )}
       </div>
 
       <div className="map-container">
@@ -111,22 +182,32 @@ export default function MapView() {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <MapClickHandler onMapClick={openAddModal} />
+          <MapClickHandler onMapClick={handleMapClick} />
           {pins.map((pin) => (
-            <Marker key={pin.id} position={[pin.lat, pin.lng]}>
+            <Marker key={pin.id} position={[pin.lat, pin.lng]} icon={pin.wikiEntryId ? wikiIcon : undefined}>
               <Popup>
                 <div style={{ fontFamily: 'var(--font)', minWidth: 160 }}>
-                  <strong style={{ display: 'block', marginBottom: 4 }}>{pin.title}</strong>
+                  <strong style={{ display: 'block', marginBottom: 4 }}>{pinTitle(pin)}</strong>
                   {pin.description && (
                     <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: 6 }}>{pin.description}</p>
                   )}
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      style={{ fontSize: '0.75rem', background: 'none', border: '1px solid #ccc', borderRadius: 3, padding: '2px 8px', cursor: 'pointer' }}
-                      onClick={() => openEditModal(pin)}
-                    >
-                      Edit
-                    </button>
+                    {pin.wikiEntryId ? (
+                      <button
+                        style={{ fontSize: '0.75rem', background: 'none', border: '1px solid #ccc', borderRadius: 3, padding: '2px 8px', cursor: 'pointer' }}
+                        onClick={() => openWikiEntry(pin.wikiEntryId)}
+                      >
+                        <BookOpen size={11} style={{ display: 'inline', marginRight: 3, verticalAlign: -1 }} />
+                        Open Entry
+                      </button>
+                    ) : (
+                      <button
+                        style={{ fontSize: '0.75rem', background: 'none', border: '1px solid #ccc', borderRadius: 3, padding: '2px 8px', cursor: 'pointer' }}
+                        onClick={() => openEditModal(pin)}
+                      >
+                        Edit
+                      </button>
+                    )}
                     <button
                       style={{ fontSize: '0.75rem', background: 'none', border: '1px solid #ccc', borderRadius: 3, padding: '2px 8px', cursor: 'pointer', color: '#b04040' }}
                       onClick={() => deletePin(pin.id)}
@@ -149,7 +230,10 @@ export default function MapView() {
                 className="map-pin-item"
                 onClick={() => flyToPin(pin)}
               >
-                <div className="map-pin-item-title">{pin.title}</div>
+                <div className="map-pin-item-title">
+                  {pin.wikiEntryId && <BookOpen size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: -1, opacity: 0.6 }} />}
+                  {pinTitle(pin)}
+                </div>
                 {pin.description && (
                   <div className="map-pin-item-desc">{pin.description.slice(0, 60)}{pin.description.length > 60 ? '...' : ''}</div>
                 )}

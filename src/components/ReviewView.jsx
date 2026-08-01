@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import TextAlign from '@tiptap/extension-text-align';
 import {
   doc, getDoc, setDoc, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp,
 } from 'firebase/firestore';
@@ -163,6 +164,7 @@ function ChapterReview({ token, chapter, reviewerName }) {
         heading: false, bulletList: false, orderedList: false, listItem: false,
         codeBlock: false, code: false, blockquote: true, horizontalRule: false, strike: false,
       }),
+      TextAlign.configure({ types: ['paragraph'] }),
       SuggestionMode.configure({ enabled: true, author: reviewerName }),
     ],
     content: chapter.content || '',

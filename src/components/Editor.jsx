@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useApp, buildTree } from '../context/AppContext';
 import SectionTree from './SectionTree';
 import { computeWordCounts } from '../lib/wordCount';
-import { Bold, Italic, Quote, IndentIncrease, IndentDecrease, FastForward } from 'lucide-react';
+import { Bold, Italic, Quote, IndentIncrease, IndentDecrease, FastForward, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 
 function findInTree(list, id) {
   for (const n of list) {
@@ -103,6 +103,34 @@ export default function Editor() {
           style={{ padding: '4px 8px' }}
         >
           <IndentIncrease size={13} />
+        </button>
+        <div className="editor-toolbar-sep" />
+        <button
+          className={"editor-toolbar-btn" + (activeEditor?.isActive({ textAlign: 'left' }) ? " is-active" : "")}
+          onClick={() => activeEditor?.chain().focus().setTextAlign('left').run()}
+          disabled={!activeEditor}
+          title="Align left"
+          style={{ padding: '4px 8px' }}
+        >
+          <AlignLeft size={13} />
+        </button>
+        <button
+          className={"editor-toolbar-btn" + (activeEditor?.isActive({ textAlign: 'center' }) ? " is-active" : "")}
+          onClick={() => activeEditor?.chain().focus().setTextAlign('center').run()}
+          disabled={!activeEditor}
+          title="Align center"
+          style={{ padding: '4px 8px' }}
+        >
+          <AlignCenter size={13} />
+        </button>
+        <button
+          className={"editor-toolbar-btn" + (activeEditor?.isActive({ textAlign: 'right' }) ? " is-active" : "")}
+          onClick={() => activeEditor?.chain().focus().setTextAlign('right').run()}
+          disabled={!activeEditor}
+          title="Align right"
+          style={{ padding: '4px 8px' }}
+        >
+          <AlignRight size={13} />
         </button>
         <div className="editor-toolbar-sep" />
         <button

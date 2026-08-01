@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import TextAlign from '@tiptap/extension-text-align';
 import { collection, onSnapshot, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useApp } from '../context/AppContext';
@@ -50,6 +51,7 @@ function ChapterSuggestions({ token, chapter }) {
         heading: false, bulletList: false, orderedList: false, listItem: false,
         codeBlock: false, code: false, blockquote: true, horizontalRule: false, strike: false,
       }),
+      TextAlign.configure({ types: ['paragraph'] }),
       SuggestionMode.configure({ enabled: false }),
     ],
     content: chapter.content || '',

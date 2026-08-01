@@ -29,6 +29,11 @@ const initialState = {
   currentNodeId: null,
   nodes: [],
   nodesLoading: false,
+  activeTab: 'write',
+  wikiOpenIds: [],
+  wikiActiveId: null,
+  mapArmedEntryId: null,
+  mapFocusEntryId: null,
 };
 
 function reducer(state, action) {
@@ -38,9 +43,24 @@ function reducer(state, action) {
     case 'SET_AUTH_LOADING':
       return { ...state, authLoading: action.payload };
     case 'SET_PROJECT':
-      return { ...state, currentProject: action.payload, currentNodeId: null, nodes: [] };
+      return {
+        ...state,
+        currentProject: action.payload,
+        currentNodeId: null,
+        nodes: [],
+        wikiOpenIds: [],
+        wikiActiveId: null,
+      };
     case 'SET_NODE_ID':
       return { ...state, currentNodeId: action.payload };
+    case 'SET_ACTIVE_TAB':
+      return { ...state, activeTab: action.payload };
+    case 'SET_WIKI_TABS':
+      return { ...state, wikiOpenIds: action.payload.ids, wikiActiveId: action.payload.activeId };
+    case 'SET_MAP_ARMED':
+      return { ...state, mapArmedEntryId: action.payload };
+    case 'SET_MAP_FOCUS':
+      return { ...state, mapFocusEntryId: action.payload };
     case 'SET_NODES':
       return { ...state, nodes: action.payload, nodesLoading: false };
     case 'SET_NODES_LOADING':
@@ -159,6 +179,56 @@ export function AppProvider({ children }) {
     dispatch({ type: 'SET_PROJECT', payload: null });
   }
 
+  function setActiveTab(tab) {
+    dispatch({ type: 'SET_ACTIVE_TAB', payload: tab });
+  }
+
+  // Opens a wiki entry as a tab (or focuses it if already open) and
+  // switches to the Wiki view — callable from anywhere (e.g. clicking a
+  // [[link]] in the notes scratchpad).
+  function openWikiEntry(entryId) {
+    if (!entryId) return;
+    const ids = state.wikiOpenIds.includes(entryId)
+      ? state.wikiOpenIds
+      : [...state.wikiOpenIds, entryId];
+    dispatch({ type: 'SET_WIKI_TABS', payload: { ids, activeId: entryId } });
+    dispatch({ type: 'SET_ACTIVE_TAB', payload: 'wiki' });
+  }
+
+  function closeWikiEntry(entryId) {
+    const ids = state.wikiOpenIds.filter((id) => id !== entryId);
+    let activeId = state.wikiActiveId;
+    if (activeId === entryId) {
+      const closedIndex = state.wikiOpenIds.indexOf(entryId);
+      activeId = ids[closedIndex] || ids[closedIndex - 1] || ids[0] || null;
+    }
+    dispatch({ type: 'SET_WIKI_TABS', payload: { ids, activeId } });
+  }
+
+  function setWikiActive(entryId) {
+    dispatch({ type: 'SET_WIKI_TABS', payload: { ids: state.wikiOpenIds, activeId: entryId } });
+  }
+
+  // Arms "next map click places this entry" mode and switches to the Map tab.
+  function armMapPlacement(entryId) {
+    dispatch({ type: 'SET_MAP_ARMED', payload: entryId });
+    dispatch({ type: 'SET_ACTIVE_TAB', payload: 'map' });
+  }
+
+  function disarmMapPlacement() {
+    dispatch({ type: 'SET_MAP_ARMED', payload: null });
+  }
+
+  // Switches to the Map tab and asks it to fly to this entry's pin, if any.
+  function focusEntryOnMap(entryId) {
+    dispatch({ type: 'SET_MAP_FOCUS', payload: entryId });
+    dispatch({ type: 'SET_ACTIVE_TAB', payload: 'map' });
+  }
+
+  function clearMapFocus() {
+    dispatch({ type: 'SET_MAP_FOCUS', payload: null });
+  }
+
   // Reparents/reorders a node. newParentId is null for root level.
   // newIndex is the node's target index among its new siblings.
   async function moveNode(nodeId, newParentId, newIndex) {
@@ -206,6 +276,14 @@ export function AppProvider({ children }) {
         deleteNode,
         moveNode,
         clearProject,
+        setActiveTab,
+        openWikiEntry,
+        closeWikiEntry,
+        setWikiActive,
+        armMapPlacement,
+        disarmMapPlacement,
+        focusEntryOnMap,
+        clearMapFocus,
       }}
     >
       {children}

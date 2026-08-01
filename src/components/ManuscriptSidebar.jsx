@@ -1,21 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp, buildTree } from '../context/AppContext';
 import { computeWordCounts } from '../lib/wordCount';
-import { ChevronRight, ChevronDown, Book, Layers, FileText, AlignLeft, Plus, Pencil, Trash2 } from 'lucide-react';
-
-const NODE_ICONS = {
-  book: Book,
-  part: Layers,
-  chapter: FileText,
-  scene: AlignLeft,
-};
-
-const ADD_TYPES = [
-  { type: 'book', label: 'Book', icon: Book },
-  { type: 'part', label: 'Part', icon: Layers },
-  { type: 'chapter', label: 'Chapter', icon: FileText },
-  { type: 'scene', label: 'Scene', icon: AlignLeft },
-];
+import AddTypeMenu, { NODE_ICONS } from './AddTypeMenu';
+import { ChevronRight, ChevronDown, AlignLeft, Plus, Pencil, Trash2 } from 'lucide-react';
 
 function formatCount(n) {
   return n.toLocaleString() + ' word' + (n === 1 ? '' : 's');
@@ -25,12 +12,12 @@ export default function ManuscriptSidebar({ mobile, onMobileClose }) {
   const { currentProject, nodes, currentNodeId, selectNode, addNode, updateNode, deleteNode, moveNode } = useApp();
   const tree = buildTree(nodes);
   const wordCounts = computeWordCounts(nodes);
-  const [rootAddOpen, setRootAddOpen] = useState(false);
+  const [rootAddAnchor, setRootAddAnchor] = useState(null);
   const [dragId, setDragId] = useState(null);
   const [dropTarget, setDropTarget] = useState(null); // { nodeId, position: 'before'|'after'|'inside' }
 
   async function handleAddRoot(type) {
-    setRootAddOpen(false);
+    setRootAddAnchor(null);
     await addNode(type, null);
   }
 
@@ -95,11 +82,13 @@ export default function ManuscriptSidebar({ mobile, onMobileClose }) {
         )}
 
         <div className="tree-add-row-wrap">
-          <div className="tree-add-row" onClick={() => setRootAddOpen((v) => !v)}>
+          <div className="tree-add-row" onClick={(e) => setRootAddAnchor(rootAddAnchor ? null : e.currentTarget)}>
             <Plus size={12} />
             Add to project
           </div>
-          {rootAddOpen && <AddTypeMenu onPick={handleAddRoot} onClose={() => setRootAddOpen(false)} />}
+          {rootAddAnchor && (
+            <AddTypeMenu anchorEl={rootAddAnchor} onPick={handleAddRoot} onClose={() => setRootAddAnchor(null)} />
+          )}
         </div>
       </div>
 
@@ -112,28 +101,6 @@ export default function ManuscriptSidebar({ mobile, onMobileClose }) {
   );
 }
 
-function AddTypeMenu({ onPick, onClose }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    function onClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) onClose();
-    }
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, [onClose]);
-
-  return (
-    <div className="add-type-menu" ref={ref} onClick={(e) => e.stopPropagation()}>
-      {ADD_TYPES.map(({ type, label, icon: Icon }) => (
-        <button key={type} className="add-type-menu-item" onClick={() => onPick(type)}>
-          <Icon size={13} />
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function TreeNode({
   node, depth, currentNodeId, wordCounts, selectNode, addNode, updateNode, deleteNode,
   dragId, setDragId, dropTarget, setDropTarget, onDrop,
@@ -141,7 +108,7 @@ function TreeNode({
   const [expanded, setExpanded] = useState(true);
   const [renaming, setRenaming] = useState(false);
   const [renameVal, setRenameVal] = useState(node.title);
-  const [addOpen, setAddOpen] = useState(false);
+  const [addAnchor, setAddAnchor] = useState(null);
   const renameRef = useRef(null);
   const rowRef = useRef(null);
   const isSelected = currentNodeId === node.id;
@@ -185,7 +152,7 @@ function TreeNode({
   }
 
   async function handleAddChild(type) {
-    setAddOpen(false);
+    setAddAnchor(null);
     setExpanded(true);
     await addNode(type, node.id);
   }
@@ -273,16 +240,16 @@ function TreeNode({
         <span className="tree-word-count">{(wordCounts[node.id] || 0).toLocaleString()}w</span>
 
         <div className="tree-actions">
-          <div style={{ position: 'relative' }}>
-            <button
-              className="tree-action-btn"
-              onClick={(e) => { e.stopPropagation(); setAddOpen((v) => !v); }}
-              title="Add inside"
-            >
-              <Plus size={11} />
-            </button>
-            {addOpen && <AddTypeMenu onPick={handleAddChild} onClose={() => setAddOpen(false)} />}
-          </div>
+          <button
+            className="tree-action-btn"
+            onClick={(e) => { e.stopPropagation(); setAddAnchor(addAnchor ? null : e.currentTarget); }}
+            title="Add inside"
+          >
+            <Plus size={11} />
+          </button>
+          {addAnchor && (
+            <AddTypeMenu anchorEl={addAnchor} onPick={handleAddChild} onClose={() => setAddAnchor(null)} />
+          )}
           <button className="tree-action-btn" onClick={handleRenameStart} title="Rename">
             <Pencil size={11} />
           </button>

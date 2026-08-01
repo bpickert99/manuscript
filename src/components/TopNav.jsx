@@ -68,13 +68,15 @@ export default function TopNav({ activeTab, setActiveTab, notesOpen, setNotesOpe
       <div className="top-nav-spacer" />
 
       <div className="top-nav-right">
-        <button
-          className={"icon-btn" + (notesOpen ? " active" : "")}
-          onClick={() => setNotesOpen(!notesOpen)}
-          title="Toggle notes panel"
-        >
-          <StickyNote size={15} />
-        </button>
+        {activeTab === 'write' && (
+          <button
+            className={"icon-btn" + (notesOpen ? " active" : "")}
+            onClick={() => setNotesOpen(!notesOpen)}
+            title="Toggle notes panel"
+          >
+            <StickyNote size={15} />
+          </button>
+        )}
         <button className="icon-btn" onClick={() => setShareOpen(true)} title="Share for review">
           <Share2 size={15} />
         </button>

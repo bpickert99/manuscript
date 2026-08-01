@@ -32,6 +32,12 @@ firebase deploy --only firestore:rules
 > big array). Re-run `firebase deploy --only firestore:rules` after
 > pulling this change.
 
+> ⚠️  Wiki entries gained a `folderId` field (replacing the old fixed
+> `category`) and `mapPins` gained an optional `wikiEntryId` field. Both
+> are additive — no rules changes needed, but very old wiki entries with
+> only a `category` field will just show up as "Unfiled" until refiled
+> into a folder.
+
 ### 4. Install and run
 
 ```bash
@@ -57,16 +63,16 @@ Or configure GitHub Actions to build and deploy automatically.
 | Freely nestable tree — any node type anywhere, drag-to-reorder/reparent | ✅ |
 | Permanent word counts (per node + rollup) | ✅ |
 | Unified manuscript view — read and edit at any level, chapter/part headings, auto scene breaks | ✅ |
-| Book Layout corkboard — drag-to-reorder cards, renames/reorders everywhere | ✅ |
-| Rich text editor (Bold, Italic, Blockquote, Indent) | ✅ |
+| Book Layout corkboard — always shows the whole book, nested, drag-to-reorder | ✅ |
+| Rich text editor (Bold, Italic, Blockquote, Indent, text alignment) | ✅ |
 | "Just Write" mode (lock everything but the word you're typing) | ✅ |
 | Choice of 3 fonts (Baskerville, Lora, Inter) | ✅ |
 | Three themes (Light, Dark, Parchment) | ✅ |
-| Per-node notes / scratchpad (open by default) | ✅ |
+| Per-node notes / scratchpad — Write tab only, links to wiki entries | ✅ |
 | Offline sync via Firebase | ✅ |
 | Plot grid (scenes × threads) + beat-sheet templates | ✅ |
-| Story map (Leaflet / OpenStreetMap) | ✅ |
-| Obsidian-style Wiki — [[linking]] autocomplete, backlinks, local graph | ✅ |
+| Story map (Leaflet / OpenStreetMap), wiki entries pinnable to it | ✅ |
+| Obsidian-style Wiki — folders, [[linking]] autocomplete, backlinks, hover previews, local graph, tabs | ✅ |
 | Mobile responsive | ✅ |
 | Shareable review links with tracked suggested edits + comments | ✅ |
 | Export to PDF / Word | 🔜 Iteration 4 |
@@ -94,17 +100,22 @@ documents at once through one continuous page.
 
 ## Book Layout
 
-The **Layout** tab shows the selected node's structure as a corkboard:
-each direct child with its own children becomes a labeled section, and its
-children become draggable cards. Rename a card or section in place, and
-write a short **description** on a card — a planning summary of that
-scene, kept separate from both its prose and its private notes (the
-scratchpad on the right stays its own thing). Drag cards to reorder them
-or move them into a different section — drag a section header to reorder
-sections. All of it goes through the same `moveNode`/`updateNode` actions
-the sidebar and editor use, so the order you set here is the order
-everywhere else (sidebar tree, manuscript view,
-Plot Grid rows). "Open in Write →" jumps straight to editing that card.
+The **Layout** tab always shows a whole book's structure as a nested
+corkboard — it has its own book picker (tabs, if your project has more
+than one) and is never scoped down by whatever's selected for writing.
+Every level nests recursively: a Part is a labeled, collapsible section
+containing its Chapters, each of which is its own nested section
+containing a row of Scene cards — sections inside sections, all the way
+down, however deep your book goes.
+
+Rename a card or section in place, and write a short **description** on a
+card — a planning summary of that scene, kept separate from both its
+prose and its private notes (the scratchpad on the right stays its own
+thing). Drag a card to reorder it or move it into a different section;
+drag a section's header to reorder sections against their siblings. All
+of it goes through the same `moveNode`/`updateNode` actions the sidebar
+and editor use, so the order you set here is the order everywhere else
+(sidebar tree, manuscript view, Plot Grid rows).
 
 ## Just Write mode
 
@@ -113,6 +124,26 @@ everything before the word you're currently typing — Backspace/Delete stop
 working on anything you've already finished, so fixing a typo mid-word is
 still possible but going back to rewrite earlier text isn't. Good for
 drafting without the temptation to fuss over what's already down.
+
+## Notes scratchpad
+
+The right-hand notes panel is per-node, opens by default, and only shows
+up on the Write tab — switching to Layout/Plot Grid/Map/Wiki closes it
+(your open/closed preference is remembered for next time you're back on
+Write). It's a full Tiptap editor now, not a plain textarea: bold,
+italic, left/center/right alignment, and `[[` wiki-linking all work the
+same as in the Wiki itself, so a note can reference a character or
+location entry directly.
+
+## Text alignment
+
+Left/center/right alignment buttons are in the toolbar of every editor —
+the manuscript view, Wiki entries, and the notes scratchpad — backed by
+`@tiptap/extension-text-align` registered consistently everywhere content
+might round-trip (including the review and suggestion-review editors), so
+alignment set anywhere survives edits, syncs, and accepted suggestions
+instead of silently getting stripped by an editor that doesn't know about
+it.
 
 ## Review links & suggested edits
 
@@ -150,22 +181,39 @@ move text around a lot instead of typing in place.
 ## Wiki
 
 The Wiki works like a small Obsidian vault instead of a flat article list.
-Type `[[` anywhere in an entry's text and a dropdown searches your other
-entries as you type — pick one to insert an atomic, clickable link, or
-pick "Create ..." to make a brand-new entry and link it in one step. Links
-are stored by the target entry's id, not its title text, so renaming an
-entry never breaks anything that links to it; a link whose target has
-since been deleted renders with a dashed red outline instead of silently
-breaking.
 
-Below the text of each entry, a **backlinks** strip lists every other
-entry that links to this one — the reverse direction Obsidian is built
-around, so you can find out who references a character or place without
-remembering yourself. The waypoints icon in the toolbar swaps the entry
-text for a **local graph**: the current entry in the center, everything
+**Folders you make yourself.** The old fixed Character/Location/Item/...
+dropdown is gone. Make your own folders (folder-plus icon), drag any entry
+onto a folder in the sidebar to file it, drag it to "Unfiled" to pull it
+back out. Deleting a folder unfiles its entries rather than deleting them.
+
+**`[[` linking.** Type `[[` anywhere in an entry's text and a dropdown
+searches your other entries as you type — pick one to insert an atomic,
+clickable link, or pick "Create ..." to make a brand-new entry and link it
+in one step. Links are stored by the target entry's id, not its title
+text, so renaming an entry never breaks anything that links to it; a link
+whose target has since been deleted renders with a dashed red outline
+instead of silently breaking.
+
+**Hover to preview, click to open a tab.** Hover any `[[link]]` and a
+read-only preview of that entry pops up next to it; if the preview itself
+contains a link, hover that for a further preview cascading off the
+first, as many layers deep as you want to go. Click a link (or "Open in
+new tab" in a preview) and it opens as its own tab in the Wiki's tab bar —
+several entries can be open side by side, and switching to another top
+tab (Write, Layout, ...) and back leaves them all open.
+
+**Backlinks and graph.** Below the text of each entry, a backlinks strip
+lists every other entry that links to this one — the reverse direction
+Obsidian is built around. The waypoints icon in the toolbar swaps the
+entry text for a local graph: the current entry in the center, everything
 it links to or is linked from arranged around it, click any node to jump
-there. Categories are still there in the sidebar for browsing, but linking
-is now how entries actually connect to each other.
+there.
+
+**On the map.** The pin icon in an entry's toolbar arms "click the map to
+place this entry" and switches to the Map tab; click anywhere to drop (or
+move) that entry's pin. Wiki-linked pins render in a distinct color and
+their popup opens the entry directly instead of the plain-pin edit form.
 
 ## Plot Grid beat templates
 

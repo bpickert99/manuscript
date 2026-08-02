@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp, buildTree } from '../context/AppContext';
 import { computeWordCounts } from '../lib/wordCount';
-import AddTypeMenu, { NODE_ICONS } from './AddTypeMenu';
+import AddTypeMenu, { NODE_ICONS, TYPE_LEVEL } from './AddTypeMenu';
 import { ChevronRight, ChevronDown, AlignLeft, Plus, Pencil, Trash2 } from 'lucide-react';
 
 function formatCount(n) {
@@ -116,6 +116,7 @@ function TreeNode({
   const Icon = NODE_ICONS[node.type] || AlignLeft;
   const isDragging = dragId === node.id;
   const isDropTarget = dropTarget?.nodeId === node.id;
+  const indentLevel = TYPE_LEVEL[node.type] ?? depth;
 
   useEffect(() => {
     if (renaming && renameRef.current) {
@@ -204,7 +205,7 @@ function TreeNode({
           (isDropTarget ? " drop-" + dropTarget.position : "")
         }
         onClick={handleSelect}
-        style={{ paddingLeft: (depth * 14 + 8) + "px" }}
+        style={{ paddingLeft: (indentLevel * 18 + 8) + "px" }}
         draggable
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}

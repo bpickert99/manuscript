@@ -1,6 +1,6 @@
 # Manuscript
 
-A personal writing workspace. Multi-project manuscript editor with a story map, plot grid, wiki, and per-node notes. Built on React + Vite + Firebase.
+A personal writing workspace. Multi-project manuscript editor with a story map, a linked wiki, and per-node notes. Built on React + Vite + Firebase.
 
 ## First-Time Setup
 
@@ -61,61 +61,79 @@ Or configure GitHub Actions to build and deploy automatically.
 | Google Sign-In | ✅ |
 | Multiple projects, each with multiple books | ✅ |
 | Freely nestable tree — any node type anywhere, drag-to-reorder/reparent | ✅ |
+| Sidebar indentation by type (Book/Part/Chapter/Scene), not nesting depth | ✅ |
 | Permanent word counts (per node + rollup) | ✅ |
-| Unified manuscript view — read and edit at any level, chapter/part headings, auto scene breaks | ✅ |
-| Book Layout corkboard — always shows the whole book, nested, drag-to-reorder | ✅ |
+| Unified manuscript view — read and edit at any level, type-styled headings, auto scene breaks | ✅ |
+| Pageless or paged view (US Letter, numbered pages) | ✅ |
+| Book Layout — always shows the whole book; only Scenes are cards, everything else is a divider | ✅ |
 | Rich text editor (Bold, Italic, Blockquote, Indent, text alignment) | ✅ |
 | "Just Write" mode (lock everything but the word you're typing) | ✅ |
 | Choice of 3 fonts (Baskerville, Lora, Inter) | ✅ |
 | Three themes (Light, Dark, Parchment) | ✅ |
 | Per-node notes / scratchpad — Write tab only, links to wiki entries | ✅ |
 | Offline sync via Firebase | ✅ |
-| Plot grid (scenes × threads) + beat-sheet templates | ✅ |
 | Story map (Leaflet / OpenStreetMap), wiki entries pinnable to it | ✅ |
 | Obsidian-style Wiki — folders, [[linking]] autocomplete, backlinks, hover previews, local graph, tabs | ✅ |
 | Mobile responsive | ✅ |
 | Shareable review links with tracked suggested edits + comments | ✅ |
-| Export to PDF / Word | 🔜 Iteration 4 |
-| Real-time multi-account collaboration on a project | 🔜 Iteration 4 |
+| Export to PDF / Word | 🔜 Iteration 5 |
+| Real-time multi-account collaboration on a project | 🔜 Iteration 5 |
 
 ## The tree and the manuscript view
 
 Any node — Book, Part, Chapter, or Scene — can be added under any other
-node (or at the project root), and nested to any depth. Drag a row onto
-another to nest it inside; drag to the top or bottom edge of a row to drop
-it as a sibling before/after. Every row shows its own word count plus the
-total of everything nested under it.
+node (or at the project root), and nested to any depth, but the sidebar
+always **indents by type**, not by actual nesting depth: every Book sits
+flush left, every Part one step in, every Chapter two steps in, every
+Scene three steps in — regardless of how deep it really sits in the tree.
+Type tells you what something is at a glance instead of having to read
+the indentation as structure. Drag a row onto another to nest it inside;
+drag to the top or bottom edge of a row to drop it as a sibling
+before/after. Every row shows its own word count plus the total of
+everything nested under it.
 
 Selecting any node — leaf or branch — opens the same **Write** view, and
 every line of text in it is directly editable no matter what level you're
-looking at. Select a Book and you get the whole book: each Part/Chapter
-along the way renders as a heading (its own text, editable in place), each
-Scene gets its own title and prose section, and two scenes that share the
-same immediate parent automatically get a centered "• • •" break between
-them — no divider between a chapter's last scene and the next chapter's
-first, since the next heading already marks that transition. Select a
-single Scene and you just get that one section. Every section auto-saves
-independently, so editing "the whole book" is really editing many
-documents at once through one continuous page.
+looking at. Select a Book and you get the whole book: each Part and
+Chapter along the way renders as a heading, styled by **type** rather
+than nesting depth — a Book title is a large centered banner with a
+double rule, a Part is a narrow uppercase divider framed by rules above
+and below (a real break, not just a centered line), a Chapter is a
+plain left-aligned heading — so the hierarchy reads at a glance instead
+of blurring together. Each Scene gets its own title and prose section,
+and two scenes that share the same immediate parent automatically get a
+centered "• • •" break between them. Select a single Scene and you just
+get that one section. Every section auto-saves independently, so editing
+"the whole book" is really editing many documents at once through one
+continuous page.
+
+**Pageless or paged.** The stacked-pages icon in the toolbar switches
+between the continuous view above and a paged one: each Scene renders on
+its own numbered US Letter sheet (8.5×11in, 1in margins), stacked on a
+gray canvas like a print layout, with a running page number at the
+bottom of each sheet. Since a live editor can't be split mid-flow, page
+breaks land at scene boundaries rather than exact print-accurate
+pagination — a disclosed approximation, not true WYSIWYG pagination.
 
 ## Book Layout
 
-The **Layout** tab always shows a whole book's structure as a nested
-corkboard — it has its own book picker (tabs, if your project has more
-than one) and is never scoped down by whatever's selected for writing.
-Every level nests recursively: a Part is a labeled, collapsible section
-containing its Chapters, each of which is its own nested section
-containing a row of Scene cards — sections inside sections, all the way
-down, however deep your book goes.
+The **Layout** tab always shows a whole book's structure — it has its own
+book picker (tabs, if your project has more than one) and is never scoped
+down by whatever's selected for writing. Only **Scenes are cards**;
+everything else (Book, Part, Chapter) is always a dividing line, weighted
+by type — a Book gets a bold underlined banner, a Part an uppercase rule,
+a Chapter a plain muted label — never a boxed section, however deep it
+sits. A Chapter's scenes flow in a row beneath its divider; a Part's
+Chapters stack beneath its own divider, indented one step in — sections
+inside sections, all the way down.
 
-Rename a card or section in place, and write a short **description** on a
+Rename a card or divider in place, and write a short **description** on a
 card — a planning summary of that scene, kept separate from both its
 prose and its private notes (the scratchpad on the right stays its own
-thing). Drag a card to reorder it or move it into a different section;
-drag a section's header to reorder sections against their siblings. All
-of it goes through the same `moveNode`/`updateNode` actions the sidebar
-and editor use, so the order you set here is the order everywhere else
-(sidebar tree, manuscript view, Plot Grid rows).
+thing). Drag a card to reorder it or move it into a different chapter;
+drag a divider to reorder it against its siblings. All of it goes through
+the same `moveNode`/`updateNode` actions the sidebar and editor use, so
+the order you set here is the order everywhere else.
 
 ## Just Write mode
 
@@ -128,8 +146,8 @@ drafting without the temptation to fuss over what's already down.
 ## Notes scratchpad
 
 The right-hand notes panel is per-node, opens by default, and only shows
-up on the Write tab — switching to Layout/Plot Grid/Map/Wiki closes it
-(your open/closed preference is remembered for next time you're back on
+up on the Write tab — switching to Layout/Map/Wiki closes it (your
+open/closed preference is remembered for next time you're back on
 Write). It's a full Tiptap editor now, not a plain textarea: bold,
 italic, left/center/right alignment, and `[[` wiki-linking all work the
 same as in the Wiki itself, so a note can reference a character or
@@ -215,16 +233,10 @@ place this entry" and switches to the Map tab; click anywhere to drop (or
 move) that entry's pin. Wiki-linked pins render in a distinct color and
 their popup opens the entry directly instead of the plain-pin edit form.
 
-## Plot Grid beat templates
-
-**Apply Beat Template** in the Plot Grid toolbar tags your existing scenes
-with an act + beat name from a popular story-structure system — Three-Act
-Structure, Save the Cat! (15 beats), or the Hero's Journey (12 stages) —
-spread proportionally across however many scenes you have. Re-running a
-template overwrites existing tags.
-
-## Iteration 4 plan
+## Iteration 5 plan
 
 **Export**: PDF via browser print (CSS @media print already included), Word via the `docx` npm package.
 
 **Collaboration**: Review links carry suggestions, not true co-writing. A second Google account editing the same project live needs a data-model change — either per-project collaborator lists checked in `firestore.rules`, or moving projects out from under `/users/{uid}` into their own top-level collection with a `members` field.
+
+**Note**: the Plot Grid (scenes × threads spreadsheet, with beat-sheet templates) was removed by request in favor of the Layout tab. If it's ever wanted back, it's in git history (`src/components/PlotGrid.jsx`, `src/lib/beatTemplates.js`) rather than gone for good.

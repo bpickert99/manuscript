@@ -582,38 +582,77 @@ body {
   flex-shrink: 0;
 }
 .agg-page-title {
+  display: block;
   width: 100%;
-  font-size: 1.7rem;
-  font-weight: 700;
-  color: var(--text);
   border: none;
   background: none;
   outline: none;
   font-family: var(--font);
-  letter-spacing: 0.02em;
-  border-bottom: 1px solid transparent;
-  padding-bottom: 0.5rem;
+  color: var(--text);
   transition: border-color var(--transition);
 }
-.agg-page-title:focus { border-bottom-color: var(--border); }
 .agg-branch { display: block; }
 .agg-heading {
   display: block;
   width: 100%;
-  max-width: 680px;
   margin: 2.5rem auto 1.25rem;
   border: none;
   background: none;
   outline: none;
   font-family: var(--font);
   color: var(--text);
-  border-bottom: 1px solid transparent;
   transition: border-color var(--transition);
 }
-.agg-heading:focus { border-bottom-color: var(--border); }
-.agg-heading-1 { font-size: 1.5rem; font-weight: 700; text-align: center; letter-spacing: 0.04em; }
-.agg-heading-2 { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.02em; }
-.agg-heading-3 { font-size: 1rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Book/Part/Chapter headings are styled by type, not nesting depth, so a
+   Part always reads as a significant divider and a Chapter never does —
+   whether it's a page title or nested a level down. */
+.ms-heading-book {
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.03em;
+  max-width: 680px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-bottom: 0.85rem;
+  border-bottom: 3px double var(--border);
+}
+.ms-heading-part {
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  max-width: 380px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0.9rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.ms-heading-chapter {
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-align: left;
+  letter-spacing: 0.01em;
+  max-width: 680px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.ms-heading-scene {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: left;
+  max-width: 680px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.agg-page-title:focus, .agg-heading:focus {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  border-radius: 2px;
+}
 .scene-break {
   max-width: 680px;
   margin: 1.75rem auto;
@@ -649,6 +688,44 @@ body {
   font-style: italic;
   min-height: 1.2em;
   margin-top: 0.25rem;
+}
+
+/* ── Paged view ────────────────────────────────────────────────────────────
+   Standard US Letter page (8.5x11in, 1in margins) per leaf section, with a
+   running page number. A live ProseMirror doc can't be split mid-flow, so
+   page boundaries land at scene/chapter edges rather than exact print
+   pagination — an intentional, disclosed approximation. */
+.editor-scroll.paged-mode {
+  background: var(--sidebar-bg);
+  padding: 2rem 1rem 4rem;
+}
+.editor-scroll.paged-mode .agg-branch { display: block; }
+.manuscript-page {
+  width: 8.5in;
+  min-height: 11in;
+  max-width: 100%;
+  margin: 0 auto 2rem;
+  padding: 1in;
+  background: var(--editor-bg);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+}
+.manuscript-page-content {
+  max-width: none;
+  margin: 0;
+  flex: 1;
+}
+.manuscript-page-content .ProseMirror { max-width: none; margin: 0; }
+.manuscript-page-number {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding-top: 1rem;
+  flex-shrink: 0;
+}
+@media (max-width: 900px) {
+  .manuscript-page { width: 100%; min-height: 0; padding: 1.25rem; }
 }
 .editor-empty-state {
   display: flex;
@@ -923,80 +1000,80 @@ body {
   align-items: flex-start;
   gap: 1.5rem 2rem;
 }
-.layout-section {
-  flex: 0 0 auto;
-  max-width: 100%;
-  border-radius: var(--radius);
+.layout-branch {
+  flex: 0 0 100%;
   transition: box-shadow var(--transition), opacity var(--transition);
 }
-.layout-section.dragging { opacity: 0.4; }
-.layout-section.drop-before { box-shadow: inset 3px 0 0 var(--accent); }
-.layout-section-label {
+.layout-branch.dragging { opacity: 0.4; }
+.layout-branch.drop-before { box-shadow: inset 0 3px 0 var(--accent); }
+.layout-branch + .layout-branch { margin-top: 0.5rem; }
+
+/* Only Scenes are ever cards — Book/Part/Chapter are always a dividing
+   line, weighted by type so the hierarchy reads at a glance. */
+.layout-divider {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  margin-bottom: 0.5rem;
+  gap: 0.4rem;
   cursor: grab;
 }
 .layout-section-grip { color: var(--text-muted); flex-shrink: 0; opacity: 0; transition: opacity var(--transition); }
-.layout-section-label:hover .layout-section-grip { opacity: 1; }
-.layout-section-title {
-  font-size: 0.78rem;
-  color: var(--text-muted);
+.layout-divider:hover .layout-section-grip { opacity: 1; }
+.layout-divider-title {
   background: none;
   border: none;
   outline: none;
   font-family: var(--font);
-  min-width: 40px;
-  width: auto;
   border-bottom: 1px solid transparent;
   transition: border-color var(--transition);
+  min-width: 40px;
 }
-.layout-section-title:focus { border-bottom-color: var(--border); }
+.layout-divider-title:focus { border-bottom-color: var(--border); }
 .layout-section-actions {
   display: flex;
   gap: 2px;
   opacity: 0;
   transition: opacity var(--transition);
 }
-.layout-section-label:hover .layout-section-actions { opacity: 1; }
-.layout-section-cards {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+.layout-divider:hover .layout-section-actions { opacity: 1; }
+
+.layout-divider-book {
+  padding-bottom: 0.6rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 2px solid var(--text);
 }
-.layout-section-empty {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  font-style: italic;
+.layout-divider-book .layout-divider-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  flex: 1;
 }
-.layout-branch {
-  flex: 0 0 100%;
-  border-radius: var(--radius);
-  transition: box-shadow var(--transition), opacity var(--transition);
+
+.layout-divider-part {
+  padding-bottom: 0.4rem;
+  margin: 1.5rem 0 1rem;
+  border-bottom: 1px solid var(--border);
 }
-.layout-branch.dragging { opacity: 0.4; }
-.layout-branch.drop-before { box-shadow: inset 0 3px 0 var(--accent); }
-.layout-branch-heading {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
-  cursor: grab;
-}
-.layout-branch-title {
+.layout-divider-part .layout-divider-title {
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--text);
-  background: none;
-  border: none;
-  outline: none;
-  font-family: var(--font);
-  border-bottom: 1px solid transparent;
-  transition: border-color var(--transition);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex: 1;
 }
-.layout-branch-title:focus { border-bottom-color: var(--border); }
-.layout-branch .layout-flow { padding-left: 1.25rem; margin-top: 1rem; border-left: 2px solid var(--border); }
+
+.layout-divider-chapter {
+  margin: 0.75rem 0 0.6rem;
+}
+.layout-divider-chapter .layout-divider-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.layout-branch .layout-branch { padding-left: 1rem; border-left: 2px solid var(--border); }
 .layout-card {
   position: relative;
   width: 150px;

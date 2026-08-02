@@ -16,7 +16,7 @@ export function SectionHeading({ node, depth, updateNode }) {
 
   return (
     <input
-      className={"agg-heading agg-heading-" + Math.min(depth, 3)}
+      className={"agg-heading ms-heading-" + (node.type || 'chapter')}
       value={val}
       onChange={handleChange}
     />
@@ -25,11 +25,15 @@ export function SectionHeading({ node, depth, updateNode }) {
 
 // Recursively renders a node: a heading for every branch below the page
 // root, an editable LeafSection for every leaf, and a centered "• • •"
-// scene break between two leaf siblings (scenes in the same chapter).
-export default function SectionTree({ node, depth, updateNode, onFocusEditor }) {
+// scene break between two leaf siblings (scenes in the same chapter). In
+// paged mode, each leaf gets its own numbered page sheet — page
+// boundaries land at leaf-section edges rather than exact print
+// pagination, since a live ProseMirror doc can't be split mid-flow.
+export default function SectionTree({ node, depth, updateNode, onFocusEditor, paged, pageCounter }) {
   const isLeaf = !node.children || node.children.length === 0;
   if (isLeaf) {
-    return <LeafSection node={node} onFocusEditor={onFocusEditor} />;
+    if (paged && pageCounter) pageCounter.current += 1;
+    return <LeafSection node={node} onFocusEditor={onFocusEditor} paged={paged} pageNumber={pageCounter?.current} />;
   }
 
   return (
@@ -41,8 +45,8 @@ export default function SectionTree({ node, depth, updateNode, onFocusEditor }) 
         const nextIsLeaf = next && (!next.children || next.children.length === 0);
         return (
           <React.Fragment key={child.id}>
-            <SectionTree node={child} depth={depth + 1} updateNode={updateNode} onFocusEditor={onFocusEditor} />
-            {childIsLeaf && nextIsLeaf && <div className="scene-break">• • •</div>}
+            <SectionTree node={child} depth={depth + 1} updateNode={updateNode} onFocusEditor={onFocusEditor} paged={paged} pageCounter={pageCounter} />
+            {!paged && childIsLeaf && nextIsLeaf && <div className="scene-break">• • •</div>}
           </React.Fragment>
         );
       })}

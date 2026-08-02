@@ -5,7 +5,6 @@ import TopNav from './TopNav';
 import Editor from './Editor';
 import NotesPanel from './NotesPanel';
 import LayoutView from './LayoutView';
-import PlotGrid from './PlotGrid';
 import MapView from './MapView';
 import WikiView from './WikiView';
 
@@ -40,7 +39,6 @@ export default function WorkspaceLayout() {
           <div className="workspace-panel">
             {activeTab === 'write' && <Editor />}
             {activeTab === 'layout' && <LayoutView />}
-            {activeTab === 'plot' && <PlotGrid />}
             {activeTab === 'map' && <MapView />}
             {activeTab === 'wiki' && <WikiView />}
           </div>

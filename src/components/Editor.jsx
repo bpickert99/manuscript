@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useApp, buildTree } from '../context/AppContext';
 import SectionTree from './SectionTree';
 import { computeWordCounts } from '../lib/wordCount';
-import { Bold, Italic, Quote, IndentIncrease, IndentDecrease, FastForward, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { Bold, Italic, Quote, IndentIncrease, IndentDecrease, FastForward, AlignLeft, AlignCenter, AlignRight, FileStack } from 'lucide-react';
 
 function findInTree(list, id) {
   for (const n of list) {
@@ -17,8 +17,10 @@ export default function Editor() {
   const { currentNodeId, nodes, updateNode } = useApp();
   const [activeEditor, setActiveEditor] = useState(null);
   const [justWrite, setJustWrite] = useState(false);
+  const [paged, setPaged] = useState(false);
   const [pageTitleVal, setPageTitleVal] = useState('');
   const pageTitleTimer = useRef(null);
+  const pageCounterRef = useRef({ current: 0 });
 
   const tree = buildTree(nodes);
   const node = currentNodeId ? findInTree(tree, currentNodeId) : null;
@@ -55,6 +57,8 @@ export default function Editor() {
     setJustWrite(next);
     activeEditor?.commands.setJustWrite(next);
   }
+
+  pageCounterRef.current.current = 0;
 
   return (
     <div className="editor-wrap">
@@ -142,6 +146,15 @@ export default function Editor() {
         >
           <FastForward size={13} />
         </button>
+        <div className="editor-toolbar-sep" />
+        <button
+          className={"editor-toolbar-btn" + (paged ? " is-active" : "")}
+          onClick={() => setPaged((v) => !v)}
+          title={paged ? "Switch to pageless view" : "Switch to paged view (US Letter, numbered)"}
+          style={{ padding: '4px 8px' }}
+        >
+          <FileStack size={13} />
+        </button>
         <span className="editor-toolbar-word-count">
           {totalWords.toLocaleString()} {totalWords === 1 ? 'word' : 'words'}
         </span>
@@ -150,15 +163,15 @@ export default function Editor() {
       {!isLeaf && (
         <div className="agg-page-header">
           <input
-            className="agg-page-title"
+            className={"agg-page-title ms-heading-" + (node.type || 'book')}
             value={pageTitleVal}
             onChange={handlePageTitleChange}
           />
         </div>
       )}
 
-      <div className="editor-scroll agg-scroll">
-        <SectionTree node={node} depth={0} updateNode={updateNode} onFocusEditor={setActiveEditor} />
+      <div className={"editor-scroll agg-scroll" + (paged ? " paged-mode" : "")}>
+        <SectionTree node={node} depth={0} updateNode={updateNode} onFocusEditor={setActiveEditor} paged={paged} pageCounter={pageCounterRef.current} />
       </div>
     </div>
   );

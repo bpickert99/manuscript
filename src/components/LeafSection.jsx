@@ -13,7 +13,7 @@ const SAVE_DELAY = 1800;
 // One independently-editable, auto-saving section of manuscript text.
 // Mounted per leaf node — give it `key={node.id}` from the parent so a new
 // instance (and a fresh editor) is created whenever the node changes.
-export default function LeafSection({ node, onFocusEditor }) {
+export default function LeafSection({ node, onFocusEditor, paged, pageNumber }) {
   const { updateNode } = useApp();
   const [titleVal, setTitleVal] = useState(node.title);
   const [saveStatus, setSaveStatus] = useState('saved');
@@ -73,8 +73,8 @@ export default function LeafSection({ node, onFocusEditor }) {
     }, SAVE_DELAY);
   }
 
-  return (
-    <div className="leaf-section">
+  const body = (
+    <div className={paged ? "leaf-section manuscript-page-content" : "leaf-section"}>
       <input
         className="leaf-section-title"
         value={titleVal}
@@ -85,6 +85,15 @@ export default function LeafSection({ node, onFocusEditor }) {
       <div className="leaf-section-status">
         {saveStatus === 'unsaved' ? 'Unsaved changes' : saveStatus === 'saving' ? 'Saving...' : saveStatus === 'error' ? 'Save failed' : ''}
       </div>
+    </div>
+  );
+
+  if (!paged) return body;
+
+  return (
+    <div className="manuscript-page">
+      {body}
+      <div className="manuscript-page-number">{pageNumber}</div>
     </div>
   );
 }

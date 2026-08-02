@@ -90,11 +90,9 @@ export default function LayoutView() {
   );
 }
 
-// A leaf-parent branch (all its children are cards, no sub-branches) is a
-// self-contained flowing "section" — a small label over a wrapping row of
-// its own cards — sized to its content so several can sit side by side,
-// the way Dabble's chapter columns do. A branch with sub-branches instead
-// breaks to full width with a plain heading and recurses.
+// Only Scenes are cards. Every other type (Book/Part/Chapter) is always a
+// dividing line, however deep it sits — never a boxed section — so the
+// only thing that ever renders as a card is the actual unit of prose.
 function FlowLevel({ node, ...dnd }) {
   if (!node.children || node.children.length === 0) {
     return (
@@ -111,12 +109,11 @@ function FlowLevel({ node, ...dnd }) {
   const groups = [];
   let row = [];
   node.children.forEach((child, i) => {
-    const isLeaf = !child.children || child.children.length === 0;
-    if (isLeaf) {
+    if (child.type === 'scene') {
       row.push({ child, index: i });
     } else {
       if (row.length) { groups.push({ type: 'row', items: row }); row = []; }
-      groups.push({ type: 'branch', child, index: i });
+      groups.push({ type: 'divider', child, index: i });
     }
   });
   if (row.length) groups.push({ type: 'row', items: row });
@@ -146,79 +143,13 @@ function FlowLevel({ node, ...dnd }) {
             />
           ));
         }
-        const allLeaves = g.child.children.every((c) => !c.children || c.children.length === 0);
-        return allLeaves ? (
-          <FlatSection key={g.child.id} node={g.child} index={g.index} parentId={node.id} {...dnd} />
-        ) : (
-          <BranchHeading key={g.child.id} node={g.child} index={g.index} parentId={node.id} {...dnd} />
-        );
+        return <Divider key={g.child.id} node={g.child} index={g.index} parentId={node.id} {...dnd} />;
       })}
     </div>
   );
 }
 
-function FlatSection({ node, index, parentId, dragId, setDragId, dropTarget, setDropTarget, onDrop, addAnchor, setAddAnchor, onAddPick, updateNode, deleteNode }) {
-  const isDragging = dragId === node.id;
-  const isDropBefore = dropTarget?.parentId === parentId && dropTarget.index === index;
-
-  return (
-    <div
-      className={"layout-section" + (isDragging ? " dragging" : "") + (isDropBefore ? " drop-before" : "")}
-      onDragOver={(e) => {
-        e.preventDefault(); e.stopPropagation();
-        const rect = e.currentTarget.getBoundingClientRect();
-        const relX = (e.clientX - rect.left) / rect.width;
-        setDropTarget({ parentId, index: relX < 0.5 ? index : index + 1 });
-      }}
-      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(); }}
-    >
-      <div className="layout-section-label" draggable onDragStart={(e) => { e.stopPropagation(); setDragId(node.id); }} onDragEnd={() => { setDragId(null); setDropTarget(null); }}>
-        <GripVertical size={11} className="layout-section-grip" />
-        <input className="layout-section-title" value={node.title} onChange={(e) => updateNode(node.id, { title: e.target.value })} />
-        <div className="layout-section-actions">
-          <button className="tree-action-btn" onClick={(e) => setAddAnchor({ el: e.currentTarget, parentId: node.id })} title="Add card">
-            <Plus size={11} />
-          </button>
-          <button
-            className="tree-action-btn danger"
-            onClick={() => { if (window.confirm('Delete "' + node.title + '" and everything in it?')) deleteNode(node.id); }}
-            title="Delete section"
-          >
-            <Trash2 size={11} />
-          </button>
-        </div>
-      </div>
-      {addAnchor?.parentId === node.id && (
-        <AddTypeMenu anchorEl={addAnchor.el} onPick={onAddPick} onClose={() => setAddAnchor(null)} />
-      )}
-      <div className="layout-section-cards">
-        {node.children.map((child, i) => (
-          <LayoutCard
-            key={child.id}
-            card={child}
-            isDragging={dragId === child.id}
-            isDropBefore={dropTarget?.parentId === node.id && dropTarget.index === i}
-            onDragStart={() => setDragId(child.id)}
-            onDragEnd={() => { setDragId(null); setDropTarget(null); }}
-            onDragOver={(e) => {
-              e.preventDefault(); e.stopPropagation();
-              const rect = e.currentTarget.getBoundingClientRect();
-              const relX = (e.clientX - rect.left) / rect.width;
-              setDropTarget({ parentId: node.id, index: relX < 0.5 ? i : i + 1 });
-            }}
-            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(); }}
-            onRename={(title) => updateNode(child.id, { title })}
-            onDescriptionChange={(val) => updateNode(child.id, { description: val })}
-            onDelete={() => { if (window.confirm('Delete "' + child.title + '"?')) deleteNode(child.id); }}
-          />
-        ))}
-        {node.children.length === 0 && <div className="layout-section-empty">No cards yet</div>}
-      </div>
-    </div>
-  );
-}
-
-function BranchHeading({ node, index, parentId, dragId, setDragId, dropTarget, setDropTarget, onDrop, updateNode, deleteNode, ...dnd }) {
+function Divider({ node, index, parentId, dragId, setDragId, dropTarget, setDropTarget, onDrop, addAnchor, setAddAnchor, onAddPick, updateNode, deleteNode, ...rest }) {
   const isDragging = dragId === node.id;
   const isDropBefore = dropTarget?.parentId === parentId && dropTarget.index === index;
 
@@ -233,18 +164,36 @@ function BranchHeading({ node, index, parentId, dragId, setDragId, dropTarget, s
       }}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(); }}
     >
-      <div className="layout-branch-heading" draggable onDragStart={(e) => { e.stopPropagation(); setDragId(node.id); }} onDragEnd={() => { setDragId(null); setDropTarget(null); }}>
+      <div
+        className={"layout-divider layout-divider-" + node.type}
+        draggable
+        onDragStart={(e) => { e.stopPropagation(); setDragId(node.id); }}
+        onDragEnd={() => { setDragId(null); setDropTarget(null); }}
+      >
         <GripVertical size={12} className="layout-section-grip" />
-        <input className="layout-branch-title" value={node.title} onChange={(e) => updateNode(node.id, { title: e.target.value })} />
-        <button
-          className="tree-action-btn danger"
-          onClick={() => { if (window.confirm('Delete "' + node.title + '" and everything in it?')) deleteNode(node.id); }}
-          title="Delete section"
-        >
-          <Trash2 size={11} />
-        </button>
+        <input className="layout-divider-title" value={node.title} onChange={(e) => updateNode(node.id, { title: e.target.value })} />
+        <div className="layout-section-actions">
+          <button className="tree-action-btn" onClick={(e) => setAddAnchor({ el: e.currentTarget, parentId: node.id })} title="Add inside">
+            <Plus size={11} />
+          </button>
+          <button
+            className="tree-action-btn danger"
+            onClick={() => { if (window.confirm('Delete "' + node.title + '" and everything in it?')) deleteNode(node.id); }}
+            title="Delete"
+          >
+            <Trash2 size={11} />
+          </button>
+        </div>
       </div>
-      <FlowLevel node={node} dragId={dragId} setDragId={setDragId} dropTarget={dropTarget} setDropTarget={setDropTarget} onDrop={onDrop} updateNode={updateNode} deleteNode={deleteNode} {...dnd} />
+      {addAnchor?.parentId === node.id && (
+        <AddTypeMenu anchorEl={addAnchor.el} onPick={onAddPick} onClose={() => setAddAnchor(null)} />
+      )}
+      <FlowLevel
+        node={node}
+        dragId={dragId} setDragId={setDragId} dropTarget={dropTarget} setDropTarget={setDropTarget}
+        onDrop={onDrop} addAnchor={addAnchor} setAddAnchor={setAddAnchor} onAddPick={onAddPick}
+        updateNode={updateNode} deleteNode={deleteNode} {...rest}
+      />
     </div>
   );
 }

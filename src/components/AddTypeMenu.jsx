@@ -16,6 +16,11 @@ export const ADD_TYPES = [
   { type: 'scene', label: 'Scene', icon: AlignLeft },
 ];
 
+// Type always determines visual nesting level, regardless of how deep a
+// node actually sits in the tree — a Chapter looks like a Chapter whether
+// it's directly under a Book or three Parts deep.
+export const TYPE_LEVEL = { book: 0, part: 1, chapter: 2, scene: 3 };
+
 export default function AddTypeMenu({ anchorEl, onPick, onClose }) {
   return (
     <PortalMenu anchorEl={anchorEl} onClose={onClose} className="add-type-menu">

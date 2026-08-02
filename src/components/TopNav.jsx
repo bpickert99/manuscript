@@ -4,12 +4,11 @@ import { auth } from '../lib/firebase';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import ShareModal from './ShareModal';
-import { PenLine, Grid3X3, LayoutGrid, Map, BookOpen, StickyNote, ArrowLeft, Menu, Sun, Moon, Scroll, Type, Share2 } from 'lucide-react';
+import { PenLine, LayoutGrid, Map, BookOpen, StickyNote, ArrowLeft, Menu, Sun, Moon, Scroll, Type, Share2 } from 'lucide-react';
 
 const TABS = [
   { id: 'write', label: 'Write', icon: PenLine },
   { id: 'layout', label: 'Layout', icon: LayoutGrid },
-  { id: 'plot', label: 'Plot Grid', icon: Grid3X3 },
   { id: 'map', label: 'Map', icon: Map },
   { id: 'wiki', label: 'Wiki', icon: BookOpen },
 ];
